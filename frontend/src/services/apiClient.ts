@@ -1,0 +1,68 @@
+import { ApiResponse } from '../types/index.js';
+import { APP_CONFIG } from '../config/index.js';
+
+class ApiClient {
+  private baseUrl: string;
+
+  constructor() {
+    this.baseUrl = APP_CONFIG.apiBaseUrl;
+  }
+
+  private getToken(): string | null {
+    return localStorage.getItem('nbm_admin_token');
+  }
+
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const token = this.getToken();
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options.headers as Record<string, string>) || {}),
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      const data: ApiResponse<T> = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error?.message || `Request failed with status ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('An unknown network error occurred');
+    }
+  }
+
+  get<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'GET' });
+  }
+
+  post<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  patch<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+}
+
+export const apiClient = new ApiClient();
