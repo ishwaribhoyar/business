@@ -19,6 +19,7 @@ import { TermsPage } from './customer/TermsPage.js';
 import { AdminLoginPage } from './admin/AdminLoginPage.js';
 import { AdminDashboardPage } from './admin/AdminDashboardPage.js';
 import { OrdersPage } from './admin/OrdersPage.js';
+import { OrderDetailPage } from './admin/OrderDetailPage.js';
 import { CustomersPage } from './admin/CustomersPage.js';
 import { SuppliersPage } from './admin/SuppliersPage.js';
 import { TrucksPage } from './admin/TrucksPage.js';
@@ -57,6 +58,7 @@ export const App: React.FC = () => {
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/orders" element={<OrdersPage />} />
+            <Route path="/admin/orders/:id" element={<OrderDetailPage />} />
             <Route path="/admin/customers" element={<CustomersPage />} />
             <Route path="/admin/suppliers" element={<SuppliersPage />} />
             <Route path="/admin/trucks" element={<TrucksPage />} />

@@ -30,4 +30,17 @@ export class AuditLogRepository {
     const stmt = this.db.prepare('SELECT * FROM audit_logs WHERE entity_type = ? AND entity_id = ? ORDER BY created_at DESC');
     return (stmt.all(entityType, entityId) as unknown as AuditLog[]) || [];
   }
+
+  findAll(limit = 50, offset = 0): { logs: AuditLog[]; total: number } {
+    const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM audit_logs');
+    const countResult = countStmt.get() as { total: number };
+
+    const stmt = this.db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?');
+    const logs = stmt.all(limit, offset) as unknown as AuditLog[];
+
+    return {
+      logs,
+      total: countResult.total,
+    };
+  }
 }

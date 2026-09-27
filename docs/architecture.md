@@ -78,7 +78,57 @@ HTTP Request
 
 ---
 
-## 4. Frontend Architecture
+## 4. Phase 2 Domain Services & Operations Engine
+
+Phase 2 introduces the internal business engine coordinating quotations and physical fulfillment:
+
+```
+[Customer Quote Request]
+          │
+          ▼
+   OrderStatusService  ── (NEW / CONTACTED)
+          │
+          ▼
+   QuotationService    ── (Deterministic Pricing: Material + Transport + Loading + Fee - Discount)
+          │             Creates immutable snapshot version (v1, v2) -> (QUOTATION_SENT)
+          ▼
+   FulfillmentService  ── (Assigns Supplier, Truck, Decoupled Driver) -> (CONFIRMED -> SUPPLIER_ASSIGNED -> TRUCK_ASSIGNED)
+          │
+          ▼
+   OrderStatusService  ── (LOADING -> OUT_FOR_DELIVERY -> DELIVERED -> COMPLETED)
+          │
+          ▼
+   PaymentService      ── (Records Cash/UPI/Bank/Cheque, computes balance due, updates PaymentStatus)
+```
+
+### Core Domain Services:
+1. **`OrderStatusService`:**
+   - Implements the authoritative 11-stage state machine:
+     `NEW` → `CONTACTED` → `QUOTATION_SENT` → `CONFIRMED` → `SUPPLIER_ASSIGNED` → `TRUCK_ASSIGNED` → `LOADING` → `OUT_FOR_DELIVERY` → `DELIVERED` → `COMPLETED` + `CANCELLED`.
+   - Invariant enforcement: rejects invalid jumps; requires active quotation before `QUOTATION_SENT` or `CONFIRMED`; requires supplier and vehicle assignments before dispatch (`LOADING`/`OUT_FOR_DELIVERY`); requires non-empty reason for `CANCELLED`.
+   - Records every transition in `order_status_history` and `audit_logs` atomically.
+
+2. **`QuotationService`:**
+   - Enforces deterministic pricing math:
+     - `base_cost = material_cost + transport_cost + loading_cost`
+     - `final_delivered_price = base_cost + platform_fee - discount`
+     - `estimated_gross_margin = final_delivered_price - base_cost`
+   - Generates immutable snapshot records. Revisions increment `version` and mark prior quotations `SUPERSEDED`.
+
+3. **`FulfillmentService`:**
+   - Coordinates third-party partners without custom mobile apps.
+   - Manages assignments for `supplier_id`, `truck_id`, and `driver_id` (decoupled).
+   - Validates partner verification and returns non-blocking warnings if assigned resources are currently marked `Busy` or `Offline`.
+   - Supports auto-assigning a truck's `default_driver_id` during truck dispatch.
+
+4. **`PaymentService`:**
+   - Manages offline and digital payment entries (`Cash`, `UPI`, `Bank Transfer`, `Cheque`).
+   - Automatically derives order payment status (`Pending`, `Partially Paid`, `Paid`, `Refunded`).
+   - Guards against overpayment beyond the frozen quoted price unless explicitly overridden.
+
+---
+
+## 5. Frontend Architecture
 
 The frontend application provides two distinct operational domains within a single, cohesive codebase:
 
@@ -90,11 +140,15 @@ The frontend application provides two distinct operational domains within a sing
 
 2. **Operations & Admin Area (`/admin`):**
    - Protected by `ProtectedRoute` route guards.
-   - Routes: Dashboard (`/admin`), Orders (`/admin/orders`), Customers (`/admin/customers`), Suppliers (`/admin/suppliers`), Trucks / Drivers (`/admin/trucks`), Quotations (`/admin/quotations`), Payments (`/admin/payments`), Reports (`/admin/reports`), Settings (`/admin/settings`).
-   - Role-based permissions differentiating standard `ADMIN` from `SUPER_ADMIN`.
-
-> **Note on Early Groundwork:**  
-> During Phase 0 setup, initial page shells and the quote submission endpoint (`POST /api/v1/orders/quote-request`) were scaffolded early to establish layout contracts and validation conventions. These represent **early Phase 1 groundwork** rather than finished customer features. Full interactive operational workflows belong to Phase 1.
+   - Routes:
+     - Dashboard (`/admin`): Live operational metrics (zero hardcoded numbers), direct pipeline links.
+     - Orders (`/admin/orders`): Search, status/payment filters, pagination.
+     - Order Detail (`/admin/orders/:id`): Central operational cockpit for manual quoting, supplier/truck/driver dispatch, payment recording, and internal notes.
+     - Suppliers (`/admin/suppliers`): Partner quarry and manufacturer registry with indicative purchase prices.
+     - Trucks & Drivers (`/admin/trucks`): Tabbed management of partner fleet vehicles and decoupled driver registry.
+     - Quotations (`/admin/quotations`): Quotation rules, pricing breakdown overview, and active pipeline table.
+     - Payments (`/admin/payments`): Global payment ledger and financial collection totals.
+     - Reports (`/admin/reports`) & Settings (`/admin/settings`).
 
 ---
 

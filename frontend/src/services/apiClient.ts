@@ -46,8 +46,22 @@ class ApiClient {
     }
   }
 
-  get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET' });
+  get<T>(endpoint: string, options?: { params?: Record<string, any> } | Record<string, any>): Promise<ApiResponse<T>> {
+    let url = endpoint;
+    const rawParams = options && 'params' in options ? options.params : options;
+    if (rawParams && typeof rawParams === 'object') {
+      const searchParams = new URLSearchParams();
+      for (const [key, val] of Object.entries(rawParams)) {
+        if (val !== undefined && val !== null && val !== '') {
+          searchParams.append(key, String(val));
+        }
+      }
+      const qs = searchParams.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
+    return this.request<T>(url, { method: 'GET' });
   }
 
   post<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {

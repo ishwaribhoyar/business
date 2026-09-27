@@ -142,6 +142,8 @@ CREATE TABLE IF NOT EXISTS orders (
   supplier_id TEXT,
   truck_id TEXT,
   driver_id TEXT,
+  current_quotation_id TEXT,
+  payment_status TEXT NOT NULL DEFAULT 'Pending' CHECK(payment_status IN ('Pending', 'Partially Paid', 'Paid', 'Refunded')),
   qr_campaign_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -150,6 +152,7 @@ CREATE TABLE IF NOT EXISTS orders (
   FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
   FOREIGN KEY (truck_id) REFERENCES trucks(id),
   FOREIGN KEY (driver_id) REFERENCES drivers(id),
+  FOREIGN KEY (current_quotation_id) REFERENCES quotations(id),
   FOREIGN KEY (qr_campaign_id) REFERENCES qr_campaigns(id)
 );
 
@@ -171,6 +174,8 @@ CREATE TABLE IF NOT EXISTS quotations (
   id TEXT PRIMARY KEY,
   quotation_reference TEXT UNIQUE NOT NULL,
   order_id TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  quotation_status TEXT NOT NULL DEFAULT 'ISSUED' CHECK(quotation_status IN ('DRAFT', 'ISSUED', 'ACCEPTED', 'SUPERSEDED', 'REJECTED')),
   material_cost REAL NOT NULL,
   transport_cost REAL NOT NULL,
   loading_cost REAL NOT NULL DEFAULT 0,
@@ -231,12 +236,25 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   FOREIGN KEY (user_id) REFERENCES admin_users(id)
 );
 
+-- 14. Order Notes (Operational internal notes)
+CREATE TABLE IF NOT EXISTS order_notes (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL,
+  author_id TEXT,
+  author_name TEXT NOT NULL,
+  note TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (author_id) REFERENCES admin_users(id)
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_product ON orders(product_id);
 CREATE INDEX IF NOT EXISTS idx_orders_truck ON orders(truck_id);
 CREATE INDEX IF NOT EXISTS idx_orders_driver ON orders(driver_id);
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_customers_mobile ON customers(mobile_number);
 CREATE INDEX IF NOT EXISTS idx_drivers_mobile ON drivers(mobile_number);
@@ -244,4 +262,5 @@ CREATE INDEX IF NOT EXISTS idx_trucks_default_driver ON trucks(default_driver_id
 CREATE INDEX IF NOT EXISTS idx_order_status_history_order ON order_status_history(order_id);
 CREATE INDEX IF NOT EXISTS idx_quotations_order ON quotations(order_id);
 CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_notes_order ON order_notes(order_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);

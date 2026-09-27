@@ -125,6 +125,8 @@ export interface Order {
   supplier_id?: string | null;
   truck_id?: string | null;
   driver_id?: string | null;
+  current_quotation_id?: string | null;
+  payment_status: PaymentStatus;
   qr_campaign_id?: string | null;
   created_at: string;
   updated_at: string;
@@ -140,10 +142,14 @@ export interface OrderStatusHistory {
   created_at: string;
 }
 
+export type QuotationStatus = 'DRAFT' | 'ISSUED' | 'ACCEPTED' | 'SUPERSEDED' | 'REJECTED';
+
 export interface Quotation {
   id: string;
   quotation_reference: string;
   order_id: string;
+  version: number;
+  quotation_status: QuotationStatus;
   material_cost: number;
   transport_cost: number;
   loading_cost: number;
@@ -154,6 +160,15 @@ export interface Quotation {
   validity_date: string;
   notes?: string | null;
   created_by_user_id: string;
+  created_at: string;
+}
+
+export interface OrderNote {
+  id: string;
+  order_id: string;
+  author_id?: string | null;
+  author_name: string;
+  note: string;
   created_at: string;
 }
 

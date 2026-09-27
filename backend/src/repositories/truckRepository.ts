@@ -2,6 +2,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { getDatabase } from '../db/connection.js';
 import { Truck } from '../models/index.js';
 
+export interface TruckWithDriver extends Truck {
+  default_driver_name?: string;
+  default_driver_mobile?: string;
+}
+
 export class TruckRepository {
   private db: DatabaseSync;
 
@@ -37,9 +42,64 @@ export class TruckRepository {
     );
   }
 
-  findAll(): Truck[] {
-    const stmt = this.db.prepare('SELECT * FROM trucks ORDER BY created_at DESC');
-    return (stmt.all() as unknown as Truck[]) || [];
+  update(id: string, updates: Partial<Truck>): Truck | null {
+    const existing = this.findById(id);
+    if (!existing) return null;
+
+    const merged: Truck = {
+      ...existing,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const stmt = this.db.prepare(`
+      UPDATE trucks SET
+        registration_number = ?,
+        capacity_tons = ?,
+        supported_materials = ?,
+        owner_name = ?,
+        owner_mobile = ?,
+        default_driver_id = ?,
+        availability_status = ?,
+        indicative_transport_rate = ?,
+        verification_status = ?,
+        notes = ?,
+        is_active = ?,
+        updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      merged.registration_number,
+      merged.capacity_tons,
+      merged.supported_materials,
+      merged.owner_name,
+      merged.owner_mobile,
+      merged.default_driver_id ?? null,
+      merged.availability_status,
+      merged.indicative_transport_rate ?? null,
+      merged.verification_status,
+      merged.notes ?? null,
+      merged.is_active,
+      merged.updated_at,
+      id
+    );
+
+    return merged;
+  }
+
+  findAll(options: { activeOnly?: boolean } = {}): TruckWithDriver[] {
+    let query = `
+      SELECT t.*, d.full_name as default_driver_name, d.mobile_number as default_driver_mobile
+      FROM trucks t
+      LEFT JOIN drivers d ON t.default_driver_id = d.id
+    `;
+    if (options.activeOnly) {
+      query += ' WHERE t.is_active = 1';
+    }
+    query += ' ORDER BY t.created_at DESC';
+    const stmt = this.db.prepare(query);
+    return (stmt.all() as unknown as TruckWithDriver[]) || [];
   }
 
   findById(id: string): Truck | null {

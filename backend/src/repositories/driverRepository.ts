@@ -32,8 +32,51 @@ export class DriverRepository {
     );
   }
 
-  findAll(): Driver[] {
-    const stmt = this.db.prepare('SELECT * FROM drivers ORDER BY created_at DESC');
+  update(id: string, updates: Partial<Driver>): Driver | null {
+    const existing = this.findById(id);
+    if (!existing) return null;
+
+    const merged: Driver = {
+      ...existing,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const stmt = this.db.prepare(`
+      UPDATE drivers SET
+        full_name = ?,
+        mobile_number = ?,
+        license_number = ?,
+        verification_status = ?,
+        availability_status = ?,
+        notes = ?,
+        is_active = ?,
+        updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      merged.full_name,
+      merged.mobile_number,
+      merged.license_number ?? null,
+      merged.verification_status,
+      merged.availability_status,
+      merged.notes ?? null,
+      merged.is_active,
+      merged.updated_at,
+      id
+    );
+
+    return merged;
+  }
+
+  findAll(options: { activeOnly?: boolean } = {}): Driver[] {
+    let query = 'SELECT * FROM drivers';
+    if (options.activeOnly) {
+      query += ' WHERE is_active = 1';
+    }
+    query += ' ORDER BY created_at DESC';
+    const stmt = this.db.prepare(query);
     return (stmt.all() as unknown as Driver[]) || [];
   }
 

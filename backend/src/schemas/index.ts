@@ -52,23 +52,45 @@ export const orderStatusUpdateSchema = z.object({
     'COMPLETED',
     'CANCELLED',
   ]),
-  notes: z.string().max(500).optional(),
-  cancellation_reason: z.string().max(500).optional(),
+  notes: z.string().max(500).optional().or(z.literal('')),
+  cancellation_reason: z.string().max(500).optional().or(z.literal('')),
 });
 
-export const quotationCreateSchema = z.object({
-  order_id: z.string().min(1, 'Order ID is required'),
+export const manualQuotationSchema = z.object({
   material_cost: z.number().min(0, 'Material cost cannot be negative'),
   transport_cost: z.number().min(0, 'Transport cost cannot be negative'),
-  loading_cost: z.number().min(0).default(0),
-  platform_fee: z.number().min(0).default(0),
-  discount: z.number().min(0).default(0),
-  final_delivered_price: z.number().positive('Final delivered price must be positive'),
-  estimated_gross_margin: z.number(),
-  validity_date: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: 'Quotation validity date must be a valid date',
-  }),
-  notes: z.string().max(500).optional(),
+  loading_cost: z.number().min(0, 'Loading cost cannot be negative').default(0),
+  platform_fee: z.number().min(0, 'Platform margin/fee cannot be negative').default(0),
+  discount: z.number().min(0, 'Discount cannot be negative').default(0),
+  validity_date: z.string().min(1, 'Quotation validity date is required'),
+  notes: z.string().max(500).optional().or(z.literal('')),
+  advance_order_status: z.boolean().optional().default(true),
+});
+
+export const assignSupplierSchema = z.object({
+  supplier_id: z.string().min(1, 'Supplier ID is required'),
+});
+
+export const assignTruckSchema = z.object({
+  truck_id: z.string().min(1, 'Truck ID is required'),
+  auto_assign_default_driver: z.boolean().optional().default(true),
+});
+
+export const assignDriverSchema = z.object({
+  driver_id: z.string().min(1, 'Driver ID is required'),
+});
+
+export const paymentCreateSchema = z.object({
+  amount: z.number().positive('Payment amount must be greater than zero'),
+  payment_method: z.enum(['Cash', 'UPI', 'Bank Transfer', 'Cheque']),
+  payment_status: z.enum(['Pending', 'Partially Paid', 'Paid', 'Refunded']).optional(),
+  transaction_reference: z.string().max(100).optional().or(z.literal('')),
+  notes: z.string().max(500).optional().or(z.literal('')),
+  payment_date: z.string().optional(),
+});
+
+export const orderNoteCreateSchema = z.object({
+  note: z.string().min(1, 'Note content cannot be empty').max(1000),
 });
 
 export const supplierCreateSchema = z.object({
@@ -76,20 +98,29 @@ export const supplierCreateSchema = z.object({
   contact_person: z.string().min(2, 'Contact person name is required').trim(),
   mobile_number: z.string().regex(indianMobileRegex, 'Valid 10-digit mobile number is required'),
   location_address: z.string().min(5, 'Location address is required').trim(),
-  service_zones: z.string().min(2, 'Service zones are required').trim(),
+  service_zones: z.string().min(2, 'Service zones are required').trim().default('Nagpur and nearby areas'),
   supported_materials: z.array(z.string()).min(1, 'At least one supported material is required'),
+  verification_status: z.enum(['VERIFIED', 'PENDING', 'REJECTED']).default('PENDING'),
   indicative_purchase_price: z.number().positive().optional(),
-  quality_notes: z.string().max(1000).optional(),
-  fulfillment_notes: z.string().max(1000).optional(),
+  quality_notes: z.string().max(1000).optional().or(z.literal('')),
+  fulfillment_notes: z.string().max(1000).optional().or(z.literal('')),
+});
+
+export const supplierUpdateSchema = supplierCreateSchema.partial().extend({
+  is_active: z.number().int().min(0).max(1).optional(),
 });
 
 export const driverCreateSchema = z.object({
   full_name: z.string().min(2, 'Driver name is required').trim(),
   mobile_number: z.string().regex(indianMobileRegex, 'Valid 10-digit driver mobile is required'),
-  license_number: z.string().max(50).optional(),
+  license_number: z.string().max(50).optional().or(z.literal('')),
   verification_status: z.enum(['VERIFIED', 'PENDING', 'REJECTED']).default('PENDING'),
   availability_status: z.enum(['Available', 'Busy', 'Offline']).default('Available'),
-  notes: z.string().max(1000).optional(),
+  notes: z.string().max(1000).optional().or(z.literal('')),
+});
+
+export const driverUpdateSchema = driverCreateSchema.partial().extend({
+  is_active: z.number().int().min(0).max(1).optional(),
 });
 
 export const truckCreateSchema = z.object({
@@ -98,8 +129,13 @@ export const truckCreateSchema = z.object({
   supported_materials: z.array(z.string()).min(1, 'At least one supported material is required'),
   owner_name: z.string().min(2, 'Owner name is required').trim(),
   owner_mobile: z.string().regex(indianMobileRegex, 'Valid 10-digit owner mobile is required'),
-  default_driver_id: z.string().optional(),
+  default_driver_id: z.string().optional().or(z.literal('')),
+  verification_status: z.enum(['VERIFIED', 'PENDING', 'REJECTED']).default('PENDING'),
   availability_status: z.enum(['Available', 'Busy', 'Offline']).default('Available'),
   indicative_transport_rate: z.number().positive().optional(),
-  notes: z.string().max(1000).optional(),
+  notes: z.string().max(1000).optional().or(z.literal('')),
+});
+
+export const truckUpdateSchema = truckCreateSchema.partial().extend({
+  is_active: z.number().int().min(0).max(1).optional(),
 });

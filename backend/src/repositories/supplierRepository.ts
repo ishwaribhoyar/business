@@ -37,8 +37,61 @@ export class SupplierRepository {
     );
   }
 
-  findAll(): Supplier[] {
-    const stmt = this.db.prepare('SELECT * FROM suppliers ORDER BY created_at DESC');
+  update(id: string, updates: Partial<Supplier>): Supplier | null {
+    const existing = this.findById(id);
+    if (!existing) return null;
+
+    const merged: Supplier = {
+      ...existing,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const stmt = this.db.prepare(`
+      UPDATE suppliers SET
+        business_name = ?,
+        contact_person = ?,
+        mobile_number = ?,
+        location_address = ?,
+        service_zones = ?,
+        supported_materials = ?,
+        verification_status = ?,
+        indicative_purchase_price = ?,
+        price_updated_at = ?,
+        quality_notes = ?,
+        fulfillment_notes = ?,
+        is_active = ?,
+        updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      merged.business_name,
+      merged.contact_person,
+      merged.mobile_number,
+      merged.location_address,
+      merged.service_zones,
+      merged.supported_materials,
+      merged.verification_status,
+      merged.indicative_purchase_price ?? null,
+      merged.price_updated_at ?? null,
+      merged.quality_notes ?? null,
+      merged.fulfillment_notes ?? null,
+      merged.is_active,
+      merged.updated_at,
+      id
+    );
+
+    return merged;
+  }
+
+  findAll(options: { activeOnly?: boolean } = {}): Supplier[] {
+    let query = 'SELECT * FROM suppliers';
+    if (options.activeOnly) {
+      query += ' WHERE is_active = 1';
+    }
+    query += ' ORDER BY created_at DESC';
+    const stmt = this.db.prepare(query);
     return (stmt.all() as unknown as Supplier[]) || [];
   }
 

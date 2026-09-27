@@ -30,7 +30,8 @@ export function runMigrations(db?: DatabaseSync): void {
     const insertStmt = activeDb.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)');
     insertStmt.run('001_baseline_schema', new Date().toISOString());
     insertStmt.run('002_decouple_drivers', new Date().toISOString());
-    Logger.info('Successfully applied migration: 001_baseline_schema and 002_decouple_drivers');
+    insertStmt.run('003_phase2_operations', new Date().toISOString());
+    Logger.info('Successfully applied migration: 001_baseline_schema, 002_decouple_drivers, and 003_phase2_operations');
     return;
   }
 
@@ -73,6 +74,53 @@ export function runMigrations(db?: DatabaseSync): void {
     const insertStmt = activeDb.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)');
     insertStmt.run('002_decouple_drivers', new Date().toISOString());
     Logger.info('Successfully applied migration: 002_decouple_drivers');
+  }
+
+  // Migration 003: Phase 2 Operations & Snapshot Enhancements
+  const checkStmt003 = activeDb.prepare("SELECT version FROM schema_migrations WHERE version = '003_phase2_operations'");
+  const applied003 = checkStmt003.get() as { version: string } | undefined;
+
+  if (!applied003) {
+    Logger.info('Applying migration: 003_phase2_operations...');
+    try {
+      activeDb.exec('ALTER TABLE orders ADD COLUMN current_quotation_id TEXT REFERENCES quotations(id);');
+    } catch {
+      // Column may already exist
+    }
+    try {
+      activeDb.exec("ALTER TABLE orders ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'Pending';");
+    } catch {
+      // Column may already exist
+    }
+    try {
+      activeDb.exec('ALTER TABLE quotations ADD COLUMN version INTEGER NOT NULL DEFAULT 1;');
+    } catch {
+      // Column may already exist
+    }
+    try {
+      activeDb.exec("ALTER TABLE quotations ADD COLUMN quotation_status TEXT NOT NULL DEFAULT 'ISSUED';");
+    } catch {
+      // Column may already exist
+    }
+
+    activeDb.exec(`
+      CREATE TABLE IF NOT EXISTS order_notes (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL,
+        author_id TEXT,
+        author_name TEXT NOT NULL,
+        note TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+        FOREIGN KEY (author_id) REFERENCES admin_users(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_order_notes_order ON order_notes(order_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);
+    `);
+
+    const insertStmt = activeDb.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)');
+    insertStmt.run('003_phase2_operations', new Date().toISOString());
+    Logger.info('Successfully applied migration: 003_phase2_operations');
   } else {
     Logger.info('All migrations are up to date.');
   }

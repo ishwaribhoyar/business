@@ -1,6 +1,6 @@
 # Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 
-[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-26%2F26%20Passing-emerald)](backend/tests/)
+[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-47%2F47%20Passing-emerald)](backend/tests/)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture.md)
 [![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](PRODUCT_SCOPE.md)
 
@@ -127,7 +127,7 @@ npm run seed
 ```bash
 npm test
 ```
-*Executes all 26 automated tests across Phase 0 Foundation (13 tests) and Phase 1 Customer Marketplace (13 tests), verifying health, database readiness, auth, role authorization, validation, decoupled driver modeling, product catalog APIs, slug alias resolution, quote request lifecycle, idempotency protection, and PII masking.*
+*Executes all 47 automated tests across Phase 0 Foundation (13 tests), Phase 1 Customer Marketplace (13 tests), and Phase 2 Admin Operations & Quotation Engine (21 tests). Tests cover end-to-end delivery state transitions, transition invariants, quotation snapshot versioning and deterministic math, partner registry management, fulfillment dispatch, offline payment recording, overpayment guards, order search, multi-filter pagination, and real dashboard metrics.*
 
 ### 6. Start Development Servers
 ```bash
@@ -150,28 +150,32 @@ npm run dev:frontend
 
 ### Status Overview
 - **Phase 0 Foundation:** ✅ **COMPLETE (with Phase 0.1 Domain Corrections)**
-- **Phase 1 Customer Marketplace & Quote Request:** ✅ **COMPLETE — TECHNICALLY VERIFIED (with Phase 1.1 Factual Cleanup)**
-  - Customer public website (Home, Products, Product Detail with slug aliases, Get Quote / Order, How It Works, About, Contact, Privacy, Terms)
-  - Verified against authoritative PRD/BRD: service area strictly limited to "Nagpur and currently serviceable nearby areas", unsupported operating hours/localities removed, supplier terminology aligned with verified supplier network
-  - Production-grade mobile-first quotation request form (touch targets ≥ 44px, numeric keyboards, instant validation)
-  - Dynamic product catalog integration with unit enforcement and min quantity rules
-  - Order reference generation (`NGP-YYMMDD-XXXX`) and quotation confirmation screen
-  - WhatsApp-assisted ordering with prefilled reference details (zero customer PII leakage)
-  - Duplicate submission protection (frontend multi-click debounce + backend 60s idempotency)
-  - Clean production build (`npm run build`) and 26/26 passing automated tests
-- **Phase 2 Operations & Admin Quotation Engine:** ⏳ **PENDING NEXT PHASE PROMPT**
-- **Full MVP:** ⏳ **IN PROGRESS**
+- **Phase 1 Customer Marketplace & Quote Request:** ✅ **COMPLETE (with Phase 1.1 Factual Cleanup)**
+- **Phase 2 Admin Operations, Quotation Engine & Fulfillment:** ✅ **COMPLETE & VERIFIED**
+  - Complete 11-stage delivery state machine (`NEW` through `COMPLETED` + `CANCELLED` with mandatory reason)
+  - Deterministic manual quotation engine with immutable snapshots, revision versioning (`v1`, `v2`), and real gross margin calculation
+  - Third-party partner registries (Suppliers, Partner Fleet Trucks, Decoupled Drivers)
+  - Atomic fulfillment dispatch (supplier, truck, driver) with availability warnings
+  - Offline payment recording (`Cash`, `UPI`, `Bank Transfer`, `Cheque`) with overpayment protection
+  - Operational internal notes (`order_notes`) with staff author tracking
+  - Live operational metrics dashboard (zero fake/hardcoded numbers)
+  - Order search, status/payment filtering, and pagination
+  - Clean production build (`npm run build`) and 47/47 passing automated tests
+- **Full MVP:** 🟢 **CORE DELIVERABLE COMPLETE**
 
-### Phase 1 Verification Checklist
-- [x] Initial 4 MVP materials strictly represented (Sand, Bricks, Black Stone Aggregate, Murum)
-- [x] Quotation-first business model accurately communicated (Request → Review → Delivered Quote → Confirm → Delivery)
-- [x] Customer routes live and responsive on mobile and desktop
-- [x] Route aliases supported (`/order` → `/get-quote`, `/privacy` → `/privacy-policy`)
-- [x] Backend product API with slug alias resolution (`black-stone`, `aggregate`)
-- [x] Quote request endpoint (`POST /api/v1/orders/quote-request`) validated, idempotent, and audited
-- [x] Customer created without requiring login credentials or password
-- [x] WhatsApp direct links generated with reference ID and safe non-sensitive details
-- [x] SEO dynamic document titles and meta descriptions active on all customer views
-- [x] Public API security verified (customer and order lists protected by admin JWT auth)
-- [x] 26/26 automated tests passing across backend test suites
-- [x] Zero Phase 2+ features prematurely implemented (no online payment gateways, no customer accounts, no driver apps, no live GPS, no automated pricing engine)
+### Phase 2 Verification Checklist
+- [x] Authoritative 11-stage delivery state machine implemented with strict transition guards
+- [x] State transition invariants enforced (requires quotation for `QUOTATION_SENT`/`CONFIRMED`, requires logistics for `LOADING`/`OUT_FOR_DELIVERY`, requires reason for `CANCELLED`)
+- [x] Quotation calculation is deterministic (`base_cost = material + transport + loading`; `final_price = base + fee - discount`; `margin = final - base`)
+- [x] Quotation revisions increment version number (`v1`, `v2`) and preserve historical snapshots
+- [x] Partner suppliers, trucks, and decoupled drivers independently managed
+- [x] Atomic fulfillment dispatch with driver assignment (including default driver auto-fill)
+- [x] Offline payments recorded with automatic status derivation (`Pending`, `Partially Paid`, `Paid`, `Refunded`)
+- [x] Overpayment guard prevents payment entries exceeding the quoted delivered price
+- [x] Operational internal notes recorded with author attribution and timestamps
+- [x] Admin dashboard displays live calculated operational metrics (zero hardcoded mock data)
+- [x] Orders management screen supports text search, multi-status filters, and pagination
+- [x] Order detail page functions as central operational cockpit
+- [x] 47/47 automated tests passing across backend test suites
+- [x] Out-of-scope boundaries strictly respected (no online payment gateways, no customer accounts, no driver apps, no live GPS tracking, no automated dynamic pricing)
+

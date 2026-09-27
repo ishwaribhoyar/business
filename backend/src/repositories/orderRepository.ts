@@ -1,12 +1,16 @@
 import { DatabaseSync } from 'node:sqlite';
 import { getDatabase } from '../db/connection.js';
-import { Order, OrderStatus, OrderStatusHistory } from '../models/index.js';
+import { Order, OrderStatus, OrderStatusHistory, OrderNote, PaymentStatus } from '../models/index.js';
 
 export interface OrderFilterOptions {
   status?: OrderStatus;
+  paymentStatus?: PaymentStatus;
   productId?: string;
+  search?: string;
   limit?: number;
   offset?: number;
+  sortBy?: 'created_at' | 'preferred_delivery_date' | 'status' | 'order_reference';
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 export class OrderRepository {
@@ -21,9 +25,10 @@ export class OrderRepository {
       INSERT INTO orders (
         id, order_reference, customer_id, product_id, quantity, unit,
         delivery_address, area_pincode, preferred_delivery_date, additional_notes,
-        status, cancellation_reason, supplier_id, truck_id, driver_id, qr_campaign_id,
+        status, cancellation_reason, supplier_id, truck_id, driver_id,
+        current_quotation_id, payment_status, qr_campaign_id,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -42,6 +47,8 @@ export class OrderRepository {
       order.supplier_id ?? null,
       order.truck_id ?? null,
       order.driver_id ?? null,
+      order.current_quotation_id ?? null,
+      order.payment_status ?? 'Pending',
       order.qr_campaign_id ?? null,
       order.created_at,
       order.updated_at
@@ -60,7 +67,13 @@ export class OrderRepository {
     return (result as unknown as Order) || null;
   }
 
-  findRecentDuplicate(customerId: string, productId: string, quantity: number, deliveryAddress: string, windowSeconds = 60): Order | null {
+  findRecentDuplicate(
+    customerId: string,
+    productId: string,
+    quantity: number,
+    deliveryAddress: string,
+    windowSeconds = 60
+  ): Order | null {
     const stmt = this.db.prepare(`
       SELECT * FROM orders
       WHERE customer_id = ? AND product_id = ? AND quantity = ? AND delivery_address = ? AND status = 'NEW'
@@ -80,6 +93,36 @@ export class OrderRepository {
     const now = new Date().toISOString();
     const stmt = this.db.prepare('UPDATE orders SET status = ?, cancellation_reason = ?, updated_at = ? WHERE id = ?');
     stmt.run(status, cancellationReason ?? null, now, id);
+  }
+
+  updateCurrentQuotation(orderId: string, quotationId: string): void {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE orders SET current_quotation_id = ?, updated_at = ? WHERE id = ?');
+    stmt.run(quotationId, now, orderId);
+  }
+
+  updateSupplier(orderId: string, supplierId: string | null): void {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE orders SET supplier_id = ?, updated_at = ? WHERE id = ?');
+    stmt.run(supplierId, now, orderId);
+  }
+
+  updateTruck(orderId: string, truckId: string | null): void {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE orders SET truck_id = ?, updated_at = ? WHERE id = ?');
+    stmt.run(truckId, now, orderId);
+  }
+
+  updateDriver(orderId: string, driverId: string | null): void {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE orders SET driver_id = ?, updated_at = ? WHERE id = ?');
+    stmt.run(driverId, now, orderId);
+  }
+
+  updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus): void {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE orders SET payment_status = ?, updated_at = ? WHERE id = ?');
+    stmt.run(paymentStatus, now, orderId);
   }
 
   recordStatusHistory(history: OrderStatusHistory): void {
@@ -103,41 +146,149 @@ export class OrderRepository {
     return (stmt.all(orderId) as unknown as OrderStatusHistory[]) || [];
   }
 
-  findAll(options: OrderFilterOptions = {}): { orders: Order[]; total: number } {
+  addNote(note: OrderNote): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO order_notes (id, order_id, author_id, author_name, note, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(note.id, note.order_id, note.author_id ?? null, note.author_name, note.note, note.created_at);
+  }
+
+  getNotes(orderId: string): OrderNote[] {
+    const stmt = this.db.prepare('SELECT * FROM order_notes WHERE order_id = ? ORDER BY created_at DESC');
+    return (stmt.all(orderId) as unknown as OrderNote[]) || [];
+  }
+
+  findAll(options: OrderFilterOptions = {}): {
+    orders: (Order & { customer_name?: string; customer_mobile?: string; product_name?: string })[];
+    total: number;
+  } {
     const limit = options.limit ?? 50;
     const offset = options.offset ?? 0;
+    const sortBy = options.sortBy ?? 'created_at';
+    const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
-    let query = 'SELECT * FROM orders WHERE 1=1';
-    let countQuery = 'SELECT COUNT(*) as total FROM orders WHERE 1=1';
+    let baseQuery = `
+      SELECT o.*, c.full_name as customer_name, c.mobile_number as customer_mobile, p.name as product_name,
+             q.final_delivered_price as quoted_price, q.version as quotation_version
+      FROM orders o
+      LEFT JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN products p ON o.product_id = p.id
+      LEFT JOIN quotations q ON o.current_quotation_id = q.id
+      WHERE 1=1
+    `;
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM orders o
+      LEFT JOIN customers c ON o.customer_id = c.id
+      WHERE 1=1
+    `;
+
     const params: (string | number)[] = [];
     const countParams: (string | number)[] = [];
 
     if (options.status) {
-      query += ' AND status = ?';
-      countQuery += ' AND status = ?';
+      baseQuery += ' AND o.status = ?';
+      countQuery += ' AND o.status = ?';
       params.push(options.status);
       countParams.push(options.status);
     }
 
+    if (options.paymentStatus) {
+      baseQuery += ' AND o.payment_status = ?';
+      countQuery += ' AND o.payment_status = ?';
+      params.push(options.paymentStatus);
+      countParams.push(options.paymentStatus);
+    }
+
     if (options.productId) {
-      query += ' AND product_id = ?';
-      countQuery += ' AND product_id = ?';
+      baseQuery += ' AND o.product_id = ?';
+      countQuery += ' AND o.product_id = ?';
       params.push(options.productId);
       countParams.push(options.productId);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    if (options.search && options.search.trim()) {
+      const term = `%${options.search.trim()}%`;
+      const searchClause =
+        ' AND (o.order_reference LIKE ? OR o.area_pincode LIKE ? OR o.delivery_address LIKE ? OR c.full_name LIKE ? OR c.mobile_number LIKE ?)';
+      baseQuery += searchClause;
+      countQuery += searchClause;
+      for (let i = 0; i < 5; i++) {
+        params.push(term);
+        countParams.push(term);
+      }
+    }
+
+    // Sanitize sort column to prevent SQL injection
+    const allowedSortColumns = ['created_at', 'preferred_delivery_date', 'status', 'order_reference'];
+    const safeSortCol = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
+
+    baseQuery += ` ORDER BY o.${safeSortCol} ${sortOrder} LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
     const countStmt = this.db.prepare(countQuery);
     const countResult = countStmt.get(...countParams) as { total: number };
 
-    const stmt = this.db.prepare(query);
-    const orders = stmt.all(...params) as unknown as Order[];
+    const stmt = this.db.prepare(baseQuery);
+    const orders = stmt.all(...params) as unknown as (Order & {
+      customer_name?: string;
+      customer_mobile?: string;
+      product_name?: string;
+    })[];
 
     return {
       orders,
       total: countResult.total,
+    };
+  }
+
+  getDashboardMetrics(): {
+    totalOrders: number;
+    newOrders: number;
+    activeDeliveries: number;
+    completedOrders: number;
+    totalRevenue: number;
+    totalDirectCosts: number;
+    grossMargin: number;
+    ordersByStatus: Record<string, number>;
+  } {
+    // Real aggregations from database
+    const statusCountsStmt = this.db.prepare(`
+      SELECT status, COUNT(*) as count FROM orders GROUP BY status
+    `);
+    const statusRows = statusCountsStmt.all() as { status: string; count: number }[];
+    const ordersByStatus: Record<string, number> = {};
+    let totalOrders = 0;
+    for (const row of statusRows) {
+      ordersByStatus[row.status] = row.count;
+      totalOrders += row.count;
+    }
+
+    // Revenue and direct costs computed from actual issued/active quotations for orders that reached CONFIRMED or later
+    const financialStmt = this.db.prepare(`
+      SELECT 
+        COALESCE(SUM(q.final_delivered_price), 0) as total_revenue,
+        COALESCE(SUM(q.material_cost + q.transport_cost + q.loading_cost), 0) as total_direct_costs
+      FROM orders o
+      JOIN quotations q ON o.current_quotation_id = q.id
+      WHERE o.status IN ('CONFIRMED', 'SUPPLIER_ASSIGNED', 'TRUCK_ASSIGNED', 'LOADING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED')
+    `);
+    const financialRow = financialStmt.get() as { total_revenue: number; total_direct_costs: number } | undefined;
+
+    const totalRevenue = financialRow?.total_revenue ?? 0;
+    const totalDirectCosts = financialRow?.total_direct_costs ?? 0;
+    const grossMargin = totalRevenue - totalDirectCosts;
+
+    return {
+      totalOrders,
+      newOrders: ordersByStatus['NEW'] || 0,
+      activeDeliveries: (ordersByStatus['OUT_FOR_DELIVERY'] || 0) + (ordersByStatus['LOADING'] || 0),
+      completedOrders: (ordersByStatus['COMPLETED'] || 0) + (ordersByStatus['DELIVERED'] || 0),
+      totalRevenue,
+      totalDirectCosts,
+      grossMargin,
+      ordersByStatus,
     };
   }
 }

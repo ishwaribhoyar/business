@@ -29,7 +29,11 @@ erDiagram
     DRIVERS ||--o{ TRUCKS : assigned_as_default
     QR_CAMPAIGNS ||--o{ ORDERS : attributes
 
+    ADMIN_USERS ||--o{ ORDERS : manages
+    ADMIN_USERS ||--o{ ORDER_NOTES : authors
+
     ORDERS ||--o{ ORDER_STATUS_HISTORY : tracks
+    ORDERS ||--o{ ORDER_NOTES : logs
     ORDERS ||--o{ QUOTATIONS : contains
     ORDERS ||--o{ PAYMENTS : receives
     ORDERS ||--|| FINANCIAL_RECORDS : calculates
@@ -130,6 +134,8 @@ The central transaction entity supporting the 11-stage delivery lifecycle.
 - `supplier_id` (TEXT, FK -> `suppliers.id`, NULL in early stages).
 - `truck_id` (TEXT, FK -> `trucks.id`, NULL in early stages).
 - `driver_id` (TEXT, FK -> `drivers.id`, NULL in early stages): Assigned driver for fulfillment.
+- `current_quotation_id` (TEXT, FK -> `quotations.id`, NULLABLE): Points to the currently active, approved quotation snapshot.
+- `payment_status` (TEXT, DEFAULT 'Pending'): Order payment state (`Pending`, `Partially Paid`, `Paid`, `Refunded`).
 - `qr_campaign_id` (TEXT, FK -> `qr_campaigns.id`, attribution).
 
 ### 9. `order_status_history`
@@ -142,28 +148,41 @@ Audit trail of every order state transition.
 - `notes` (TEXT): Reason or operational context.
 - `created_at` (TEXT): Timestamp.
 
-### 10. `quotations`
+### 10. `order_notes`
+Operational internal communication log for coordination and customer requests.
+- `id` (TEXT, PK).
+- `order_id` (TEXT, FK -> `orders.id`).
+- `author_id` (TEXT, FK -> `admin_users.id`, NULLABLE).
+- `author_name` (TEXT): Staff name at time of entry.
+- `note` (TEXT): Operational instruction or note text.
+- `created_at` (TEXT): ISO 8601 timestamp.
+
+### 11. `quotations`
 Snapshot quotation model freezing prices per order.
 - `id` (TEXT, PK).
-- `quotation_reference` (TEXT, UNIQUE): Quotation identifier.
+- `quotation_reference` (TEXT, UNIQUE): Quotation identifier (`QT-YYMMDD-XXXX`).
 - `order_id` (TEXT, FK -> `orders.id`).
+- `version` (INTEGER, DEFAULT 1): Revision version number (`1`, `2`, `3`).
+- `quotation_status` (TEXT, DEFAULT 'ISSUED'): State (`DRAFT`, `ISSUED`, `ACCEPTED`, `SUPERSEDED`, `REJECTED`).
 - `material_cost` (REAL): Base supplier cost.
 - `transport_cost` (REAL): Freight cost to site.
 - `loading_cost` (REAL): Quarry loading charges.
 - `platform_fee` (REAL): Marketplace coordination fee.
 - `discount` (REAL): Commercial concessions.
-- `final_delivered_price` (REAL): Total customer price.
-- `estimated_gross_margin` (REAL): Expected profit margin.
+- `final_delivered_price` (REAL): Total customer price (`base_cost + platform_fee - discount`).
+- `estimated_gross_margin` (REAL): Expected profit margin (`final_delivered_price - base_cost`).
 - `validity_date` (TEXT): Price expiry date.
 - `created_by_user_id` (TEXT, FK -> `admin_users.id`).
 
-### 11. `payments`
+### 12. `payments`
 Recording offline and digital payments.
-- `order_id`, `amount`, `payment_method` (Cash, UPI, Bank Transfer, Cheque).
+- `id` (TEXT, PK).
+- `order_id` (TEXT, FK -> `orders.id`), `amount`, `payment_method` (Cash, UPI, Bank Transfer, Cheque).
 - `payment_status` (TEXT): `Pending`, `Partially Paid`, `Paid`, `Refunded`.
 - `transaction_reference` (TEXT), `payment_date` (TEXT).
+- `recorded_by_user_id` (TEXT, FK -> `admin_users.id`).
 
-### 12. `financial_records`
+### 13. `financial_records`
 Order-level unit economics.
 - `order_id` (TEXT, UNIQUE, FK -> `orders.id`).
 - `actual_revenue`, `actual_material_cost`, `actual_transport_cost`, `other_direct_costs`.
@@ -189,11 +208,25 @@ CREATE INDEX idx_orders_product ON orders(product_id);
 CREATE INDEX idx_orders_truck ON orders(truck_id);
 CREATE INDEX idx_orders_driver ON orders(driver_id);
 CREATE INDEX idx_orders_created_at ON orders(created_at);
+CREATE INDEX idx_orders_payment_status ON orders(payment_status);
 CREATE INDEX idx_customers_mobile ON customers(mobile_number);
 CREATE INDEX idx_drivers_mobile ON drivers(mobile_number);
 CREATE INDEX idx_trucks_default_driver ON trucks(default_driver_id);
 CREATE INDEX idx_order_status_history_order ON order_status_history(order_id);
+CREATE INDEX idx_order_notes_order ON order_notes(order_id);
 CREATE INDEX idx_quotations_order ON quotations(order_id);
+CREATE INDEX idx_quotations_status ON quotations(quotation_status);
 CREATE INDEX idx_payments_order ON payments(order_id);
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 ```
+
+---
+
+## 4. Schema Migrations Log
+
+| Migration | Version | Purpose | Operations |
+| :--- | :--- | :--- | :--- |
+| `001_initial_schema` | 1 | Foundation database baseline | Tables: `admin_users`, `products`, `customers`, `orders`, `order_status_history`, `quotations`, `payments`, `financial_records`, `audit_logs`, `qr_campaigns`, `suppliers`, `trucks`. |
+| `002_decouple_drivers` | 2 | Phase 0.1 Domain corrections | Created `drivers` table; added `driver_id` on `orders`; added `default_driver_id` on `trucks`. |
+| `003_phase2_operations` | 3 | Phase 2 Quotation & fulfillment engine | Added `current_quotation_id`, `payment_status` to `orders`; added `version`, `quotation_status` to `quotations`; created `order_notes` table; added operational indexes. |
+
