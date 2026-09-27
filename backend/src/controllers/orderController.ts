@@ -6,7 +6,7 @@ import { ProductRepository } from '../repositories/productRepository.js';
 import { NotificationService } from '../services/notificationService.js';
 import { AuditService } from '../services/auditService.js';
 import { Order, Customer, OrderStatusHistory } from '../models/index.js';
-import { NotFoundError } from '../utils/errors.js';
+import { NotFoundError, ValidationError } from '../utils/errors.js';
 
 const customerRepo = new CustomerRepository();
 const orderRepo = new OrderRepository();
@@ -25,21 +25,33 @@ export class OrderController {
     try {
       const payload = req.body;
 
-      const product = productRepo.findById(payload.material_id);
+      // 1. Resolve product by ID or Slug
+      const product = productRepo.findById(payload.material_id) || productRepo.findBySlug(payload.material_id);
       if (!product) {
         throw new NotFoundError(`Material product with id '${payload.material_id}'`);
       }
 
-      const now = new Date().toISOString();
+      // 2. Validate unit compatibility against product configuration
+      if (payload.unit && payload.unit.toLowerCase() !== product.unit.toLowerCase()) {
+        throw new ValidationError(
+          `Selected unit '${payload.unit}' is not compatible with material '${product.name}'. Supported unit is '${product.unit}'.`
+        );
+      }
 
-      // 1. Create or resolve customer by mobile number
-      let customer = customerRepo.findByMobile(payload.mobile_number);
+      const now = new Date().toISOString();
+      const normalizedMobile = payload.mobile_number.replace(/\D/g, '').slice(-10);
+      const normalizedWhatsapp = payload.whatsapp_number
+        ? payload.whatsapp_number.replace(/\D/g, '').slice(-10)
+        : normalizedMobile;
+
+      // 3. Create or resolve customer by mobile number (no password or account needed)
+      let customer = customerRepo.findByMobile(normalizedMobile);
       if (!customer) {
         customer = {
           id: `cust_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           full_name: payload.customer_name,
-          mobile_number: payload.mobile_number,
-          whatsapp_number: payload.whatsapp_number || payload.mobile_number,
+          mobile_number: normalizedMobile,
+          whatsapp_number: normalizedWhatsapp,
           delivery_address: payload.delivery_address,
           area_pincode: payload.area_pincode,
           map_pin_url: payload.map_pin_url || null,
@@ -50,7 +62,33 @@ export class OrderController {
         customerRepo.create(customer);
       }
 
-      // 2. Create order record in NEW status
+      // 4. Duplicate submission protection (idempotency window: 60s)
+      const recentDuplicate = orderRepo.findRecentDuplicate(
+        customer.id,
+        product.id,
+        payload.quantity,
+        payload.delivery_address,
+        60
+      );
+
+      if (recentDuplicate) {
+        ResponseFormatter.success(
+          res,
+          {
+            orderId: recentDuplicate.id,
+            orderReference: recentDuplicate.order_reference,
+            status: recentDuplicate.status,
+            message: 'Your quote request has already been received and is being processed by our operations desk.',
+            whatsappDirectUrl: notificationService.getOperationalWhatsAppUrl(
+              `Hi, I recently submitted a quote request (Ref: ${recentDuplicate.order_reference}) for ${payload.quantity} ${payload.unit} of ${product.name} in ${payload.area_pincode}.`
+            ),
+          },
+          200
+        );
+        return;
+      }
+
+      // 5. Create order record in NEW status
       const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const orderRef = generateOrderReference();
 
@@ -60,7 +98,7 @@ export class OrderController {
         customer_id: customer.id,
         product_id: product.id,
         quantity: payload.quantity,
-        unit: payload.unit,
+        unit: product.unit, // Authoritative unit from product catalog
         delivery_address: payload.delivery_address,
         area_pincode: payload.area_pincode,
         preferred_delivery_date: payload.preferred_delivery_date,
@@ -77,7 +115,7 @@ export class OrderController {
 
       orderRepo.create(order);
 
-      // 3. Record initial status history
+      // 6. Record initial status history
       const history: OrderStatusHistory = {
         id: `osh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         order_id: orderId,
@@ -89,7 +127,7 @@ export class OrderController {
       };
       orderRepo.recordStatusHistory(history);
 
-      // 4. Audit log creation
+      // 7. Audit log creation
       auditService.recordAction({
         action: 'CUSTOMER_SUBMITTED_QUOTE_REQUEST',
         entityType: 'ORDER',
@@ -98,7 +136,7 @@ export class OrderController {
         ipAddress: req.ip,
       });
 
-      // 5. Trigger notification
+      // 8. Trigger notification
       notificationService.notifyOrderReceived(customer.mobile_number, orderRef, customer.full_name);
 
       ResponseFormatter.success(

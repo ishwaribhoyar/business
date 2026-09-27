@@ -17,9 +17,19 @@ export const quoteRequestSchema = z.object({
   unit: z.string().min(1, 'Unit is required'),
   delivery_address: z.string().min(5, 'Delivery address must be at least 5 characters').trim(),
   area_pincode: z.string().min(3, 'Area or Pincode is required').trim(),
-  preferred_delivery_date: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: 'Preferred delivery date must be a valid date',
-  }),
+  preferred_delivery_date: z.string().refine(
+    (val) => {
+      const parsed = Date.parse(val);
+      if (isNaN(parsed)) return false;
+      const date = new Date(val);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return date.getTime() >= today.getTime();
+    },
+    {
+      message: 'Preferred delivery date must be today or a future date',
+    }
+  ),
   customer_name: z.string().min(2, 'Customer name must be at least 2 characters').trim(),
   mobile_number: z.string().regex(indianMobileRegex, 'Please provide a valid 10-digit mobile number'),
   whatsapp_number: z.string().regex(indianMobileRegex, 'Please provide a valid WhatsApp number').optional().or(z.literal('')),

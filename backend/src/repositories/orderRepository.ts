@@ -60,6 +60,22 @@ export class OrderRepository {
     return (result as unknown as Order) || null;
   }
 
+  findRecentDuplicate(customerId: string, productId: string, quantity: number, deliveryAddress: string, windowSeconds = 60): Order | null {
+    const stmt = this.db.prepare(`
+      SELECT * FROM orders
+      WHERE customer_id = ? AND product_id = ? AND quantity = ? AND delivery_address = ? AND status = 'NEW'
+      ORDER BY created_at DESC LIMIT 1
+    `);
+    const order = stmt.get(customerId, productId, quantity, deliveryAddress) as unknown as Order | undefined;
+    if (!order) return null;
+
+    const createdTime = new Date(order.created_at).getTime();
+    if (!isNaN(createdTime) && (Date.now() - createdTime) <= windowSeconds * 1000) {
+      return order;
+    }
+    return null;
+  }
+
   updateStatus(id: string, status: OrderStatus, cancellationReason?: string | null): void {
     const now = new Date().toISOString();
     const stmt = this.db.prepare('UPDATE orders SET status = ?, cancellation_reason = ?, updated_at = ? WHERE id = ?');

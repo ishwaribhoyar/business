@@ -27,9 +27,12 @@ import { PaymentsPage } from './admin/PaymentsPage.js';
 import { ReportsPage } from './admin/ReportsPage.js';
 import { SettingsPage } from './admin/SettingsPage.js';
 
+import { ScrollToTop } from './components/ScrollToTop.js';
+
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         {/* Customer Public Routes */}
         <Route element={<CustomerLayout />}>
@@ -37,10 +40,12 @@ export const App: React.FC = () => {
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/:slug" element={<ProductDetailPage />} />
           <Route path="/get-quote" element={<QuoteOrderPage />} />
+          <Route path="/order" element={<QuoteOrderPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
         </Route>
 

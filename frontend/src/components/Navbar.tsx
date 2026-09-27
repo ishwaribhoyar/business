@@ -16,7 +16,15 @@ export const Navbar: React.FC = () => {
     { label: 'Contact', path: '/contact' },
   ];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/get-quote') {
+      return location.pathname === '/get-quote' || location.pathname === '/order';
+    }
+    if (path === '/products') {
+      return location.pathname.startsWith('/products');
+    }
+    return location.pathname === path;
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">

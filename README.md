@@ -1,6 +1,6 @@
 # Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 
-[![Phase 0 Tests](https://img.shields.io/badge/Phase%200%20Tests-13%2F13%20Passing-emerald)](backend/tests/foundation.test.ts)
+[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-26%2F26%20Passing-emerald)](backend/tests/)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture.md)
 [![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](PRODUCT_SCOPE.md)
 
@@ -127,7 +127,7 @@ npm run seed
 ```bash
 npm test
 ```
-*Executes all 13 Phase 0 foundation tests verifying health, database readiness, auth, role authorization, validation, decoupled driver modeling, and error formats.*
+*Executes all 26 automated tests across Phase 0 Foundation (13 tests) and Phase 1 Customer Marketplace (13 tests), verifying health, database readiness, auth, role authorization, validation, decoupled driver modeling, product catalog APIs, slug alias resolution, quote request lifecycle, idempotency protection, and PII masking.*
 
 ### 6. Start Development Servers
 ```bash
@@ -138,6 +138,8 @@ npm run dev:backend
 npm run dev:frontend
 ```
 - Customer Web App: `http://localhost:3000`
+- Order / Get Quote: `http://localhost:3000/get-quote` (alias: `/order`)
+- Materials Catalog: `http://localhost:3000/products`
 - Operations Admin Portal: `http://localhost:3000/admin/login`
 - Backend API Health: `http://localhost:5000/health`
 - Backend API Root: `http://localhost:5000/api/v1`
@@ -147,24 +149,28 @@ npm run dev:frontend
 ## 6. Implementation Status & Acceptance
 
 ### Status Overview
-- **Phase 0 Foundation:** ✅ **COMPLETE (with Phase 0.1 Architectural Corrections)**
-- **Phase 1 Groundwork:** 🟡 **PARTIALLY IMPLEMENTED EARLY** (Customer public route skeletons and initial quote submission endpoint established as foundation groundwork; full business logic, quote calculation engine, payment processing, and WhatsApp delivery dispatch are strictly reserved for Phase 1)
-- **Full MVP:** ⏳ **NOT COMPLETE** (Awaiting Phase 1 through Phase 4 prompts)
+- **Phase 0 Foundation:** ✅ **COMPLETE (with Phase 0.1 Domain Corrections)**
+- **Phase 1 Customer Marketplace & Quote Request:** ✅ **COMPLETE & VERIFIED**
+  - Customer public website (Home, Products, Product Detail with slug aliases, Get Quote / Order, How It Works, About, Contact, Privacy, Terms)
+  - Production-grade mobile-first quotation request form (touch targets ≥ 44px, numeric keyboards, instant validation)
+  - Dynamic product catalog integration with unit enforcement and min quantity rules
+  - Order reference generation (`NGP-YYMMDD-XXXX`) and quotation confirmation screen
+  - WhatsApp-assisted ordering with prefilled reference details (zero customer PII leakage)
+  - Duplicate submission protection (frontend multi-click debounce + backend 60s idempotency)
+  - Clean production build (`npm run build`) and 26/26 passing automated tests
+- **Phase 2 Operations & Admin Quotation Engine:** ⏳ **PENDING NEXT PHASE PROMPT**
+- **Full MVP:** ⏳ **IN PROGRESS**
 
-### Foundation Criteria Verification
-- [x] Repository inspected before modification and baseline assessed
-- [x] Frontend foundation and design system established
-- [x] Customer routes (Home, Products, Detail, Get Quote, How It Works, About, Contact, Privacy, Terms) architected
-- [x] Admin routes (Login, Dashboard, Orders, Customers, Suppliers, Trucks, Quotations, Payments, Reports, Settings) architected
-- [x] Backend layered architecture (Routes -> Controllers -> Services -> Repositories -> Database) established
-- [x] Relational database schema with 13 core tables created (including decoupled `drivers` table)
-- [x] Migration and seed system implemented and verified
-- [x] Bcrypt password hashing and JWT role-based authorization (`ADMIN`, `SUPER_ADMIN`) verified
-- [x] Centralized error handling and Zod request validation active
-- [x] Structured JSON logging with automatic PII and password redaction
-- [x] Health (`/health`) and readiness (`/health/readiness`) endpoints working
-- [x] Automated testing suite with 100% passing tests (13/13)
-- [x] Decoupled driver and truck modeling implemented and verified
-- [x] Comprehensive documentation (Architecture, Database, API, Auth, Deployment, Security, Backup, Traceability)
-- [x] Architectural guardrails enforced (`PRODUCT_SCOPE.md`)
-- [x] Zero Phase 2 features prematurely implemented
+### Phase 1 Verification Checklist
+- [x] Initial 4 MVP materials strictly represented (Sand, Bricks, Black Stone Aggregate, Murum)
+- [x] Quotation-first business model accurately communicated (Request → Review → Delivered Quote → Confirm → Delivery)
+- [x] Customer routes live and responsive on mobile and desktop
+- [x] Route aliases supported (`/order` → `/get-quote`, `/privacy` → `/privacy-policy`)
+- [x] Backend product API with slug alias resolution (`black-stone`, `aggregate`)
+- [x] Quote request endpoint (`POST /api/v1/orders/quote-request`) validated, idempotent, and audited
+- [x] Customer created without requiring login credentials or password
+- [x] WhatsApp direct links generated with reference ID and safe non-sensitive details
+- [x] SEO dynamic document titles and meta descriptions active on all customer views
+- [x] Public API security verified (customer and order lists protected by admin JWT auth)
+- [x] 26/26 automated tests passing across backend test suites
+- [x] Zero Phase 2+ features prematurely implemented (no online payment gateways, no customer accounts, no driver apps, no live GPS, no automated pricing engine)
