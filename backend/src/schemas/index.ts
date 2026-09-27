@@ -62,7 +62,14 @@ export const manualQuotationSchema = z.object({
   loading_cost: z.number().min(0, 'Loading cost cannot be negative').default(0),
   platform_fee: z.number().min(0, 'Platform margin/fee cannot be negative').default(0),
   discount: z.number().min(0, 'Discount cannot be negative').default(0),
-  validity_date: z.string().min(1, 'Quotation validity date is required'),
+  validity_date: z
+    .string()
+    .optional()
+    .default(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 3);
+      return d.toISOString().split('T')[0];
+    }),
   notes: z.string().max(500).optional().or(z.literal('')),
   advance_order_status: z.boolean().optional().default(true),
 });

@@ -1,6 +1,6 @@
 # Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 
-[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-47%2F47%20Passing-emerald)](backend/tests/)
+[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-49%2F49%20Passing-emerald)](backend/tests/)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture.md)
 [![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](PRODUCT_SCOPE.md)
 
@@ -127,7 +127,7 @@ npm run seed
 ```bash
 npm test
 ```
-*Executes all 47 automated tests across Phase 0 Foundation (13 tests), Phase 1 Customer Marketplace (13 tests), and Phase 2 Admin Operations & Quotation Engine (21 tests). Tests cover end-to-end delivery state transitions, transition invariants, quotation snapshot versioning and deterministic math, partner registry management, fulfillment dispatch, offline payment recording, overpayment guards, order search, multi-filter pagination, and real dashboard metrics.*
+*Executes all 49 automated tests across Phase 0 Foundation (13 tests), Phase 1 Customer Marketplace (13 tests), and Phase 2 & 2.1 Admin Operations & Quotation Engine (23 tests). Tests cover the 10-stage primary delivery lifecycle + CANCELLED terminal state, transition invariants (strictly requiring supplier, truck, and driver for dispatch), negative transition paths, quotation snapshot versioning and deterministic math, partner registry management, fulfillment dispatch, master data mutation historical immutability, offline payment recording, overpayment guards, order search, multi-filter pagination, and live dashboard metrics.*
 
 ### 6. Start Development Servers
 ```bash
@@ -151,31 +151,35 @@ npm run dev:frontend
 ### Status Overview
 - **Phase 0 Foundation:** ✅ **COMPLETE (with Phase 0.1 Domain Corrections)**
 - **Phase 1 Customer Marketplace & Quote Request:** ✅ **COMPLETE (with Phase 1.1 Factual Cleanup)**
-- **Phase 2 Admin Operations, Quotation Engine & Fulfillment:** ✅ **COMPLETE & VERIFIED**
-  - Complete 11-stage delivery state machine (`NEW` through `COMPLETED` + `CANCELLED` with mandatory reason)
+- **Phase 2 Admin Operations, Quotation Engine & Fulfillment:** ✅ **COMPLETE (with Phase 2.1 Operational Integrity Audit)**
+  - 10-stage primary delivery lifecycle + CANCELLED terminal state with mandatory cancellation reason
+  - Strict dispatch invariants enforced (both `LOADING` and `OUT_FOR_DELIVERY` strictly require supplier, truck, and driver)
   - Deterministic manual quotation engine with immutable snapshots, revision versioning (`v1`, `v2`), and real gross margin calculation
   - Third-party partner registries (Suppliers, Partner Fleet Trucks, Decoupled Drivers)
-  - Atomic fulfillment dispatch (supplier, truck, driver) with availability warnings
-  - Offline payment recording (`Cash`, `UPI`, `Bank Transfer`, `Cheque`) with overpayment protection
+  - Atomic fulfillment dispatch with independent driver persistence and default-driver auto-assignment as an operational convenience
+  - Historical master data immutability (mutating trucks, default drivers, or supplier rates never alters existing orders or past quotes)
+  - Offline payment recording (`Cash`, `UPI`, `Bank Transfer`, `Cheque`) with automatic status derivation and clean default overpayment rejection
   - Operational internal notes (`order_notes`) with staff author tracking
-  - Live operational metrics dashboard (zero fake/hardcoded numbers)
+  - Live operational metrics dashboard featuring **Quoted Revenue** (Total Customer Value of confirmed orders; zero mock data; zero invoice confusion)
   - Order search, status/payment filtering, and pagination
-  - Clean production build (`npm run build`) and 47/47 passing automated tests
-- **Full MVP:** 🟢 **CORE DELIVERABLE COMPLETE**
+  - Clean production build (`npm run build`) and 49/49 passing automated tests
+- **Full MVP:** 🟢 **CORE DELIVERABLE COMPLETE & VERIFIED**
 
-### Phase 2 Verification Checklist
-- [x] Authoritative 11-stage delivery state machine implemented with strict transition guards
-- [x] State transition invariants enforced (requires quotation for `QUOTATION_SENT`/`CONFIRMED`, requires logistics for `LOADING`/`OUT_FOR_DELIVERY`, requires reason for `CANCELLED`)
+### Phase 2 & 2.1 Verification Checklist
+- [x] Primary delivery lifecycle (10 stages) + CANCELLED terminal state implemented with strict transition guards
+- [x] State transition invariants enforced (requires quotation for `QUOTATION_SENT`/`CONFIRMED`, strictly requires supplier + truck + driver for `LOADING`/`OUT_FOR_DELIVERY`, requires reason for `CANCELLED`)
+- [x] Negative transition paths explicitly verified (`NEW` → `DELIVERED` ❌, `NEW` → `COMPLETED` ❌, `COMPLETED` → `NEW` ❌, `DELIVERED` → `CONFIRMED` ❌)
 - [x] Quotation calculation is deterministic (`base_cost = material + transport + loading`; `final_price = base + fee - discount`; `margin = final - base`)
 - [x] Quotation revisions increment version number (`v1`, `v2`) and preserve historical snapshots
+- [x] Internal quotation validity date is optional and defaulted gracefully
 - [x] Partner suppliers, trucks, and decoupled drivers independently managed
-- [x] Atomic fulfillment dispatch with driver assignment (including default driver auto-fill)
+- [x] Atomic fulfillment dispatch with driver assignment; historical immutability verified against future truck driver changes
 - [x] Offline payments recorded with automatic status derivation (`Pending`, `Partially Paid`, `Paid`, `Refunded`)
-- [x] Overpayment guard prevents payment entries exceeding the quoted delivered price
+- [x] Overpayment rejected by default without undefined override backdoors
 - [x] Operational internal notes recorded with author attribution and timestamps
-- [x] Admin dashboard displays live calculated operational metrics (zero hardcoded mock data)
+- [x] Admin dashboard displays live calculated operational metrics; revenue labeled **Quoted Revenue**
 - [x] Orders management screen supports text search, multi-status filters, and pagination
 - [x] Order detail page functions as central operational cockpit
-- [x] 47/47 automated tests passing across backend test suites
+- [x] 49/49 automated tests passing across backend test suites
 - [x] Out-of-scope boundaries strictly respected (no online payment gateways, no customer accounts, no driver apps, no live GPS tracking, no automated dynamic pricing)
 

@@ -622,5 +622,240 @@ describe('Phase 2 Admin Operations, Quotation Engine & Fulfillment Tests', () =>
       expect(finalData.activeQuotation.final_delivered_price).toBe(55000);
       expect(finalData.statusHistory.length).toBeGreaterThanOrEqual(10);
     });
+
+    it('22. Enforces strict negative status transition paths and operational invariants', async () => {
+      const order = await createTestOrder(5);
+      const orderId = order.orderId;
+
+      // 1. Direct jump from NEW to DELIVERED must fail (400)
+      const jumpToDelivered = await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'DELIVERED' });
+      expect(jumpToDelivered.status).toBe(400);
+      expect(jumpToDelivered.body.error.message).toContain('Invalid status transition');
+
+      // 2. Direct jump from NEW to COMPLETED must fail (400)
+      const jumpToCompleted = await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'COMPLETED' });
+      expect(jumpToCompleted.status).toBe(400);
+
+      // 3. Move to CONTACTED
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'CONTACTED' });
+
+      // 4. Move CONTACTED -> QUOTATION_SENT directly without issuing a quotation must fail (400)
+      const sentWithoutQuote = await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'QUOTATION_SENT' });
+      expect(sentWithoutQuote.status).toBe(400);
+      expect(sentWithoutQuote.body.error.message).toContain('quotation');
+
+      // 5. Create quotation and confirm order
+      await request(app)
+        .post(`/api/v1/orders/${orderId}/quotations`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          material_cost: 12000,
+          transport_cost: 3000,
+          validity_date: '2026-10-31',
+          advance_order_status: true,
+        });
+
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'CONFIRMED' });
+
+      // 6. Move CONFIRMED -> LOADING without supplier, truck, or driver must fail (400)
+      const loadingWithoutLogistics = await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'LOADING' });
+      expect(loadingWithoutLogistics.status).toBe(400);
+
+      // 7. Assign supplier and move to SUPPLIER_ASSIGNED
+      const supList = await request(app).get('/api/v1/admin/suppliers').set('Authorization', `Bearer ${adminToken}`);
+      await request(app)
+        .post(`/api/v1/orders/${orderId}/supplier`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ supplier_id: supList.body.data[0].id });
+
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'SUPPLIER_ASSIGNED' });
+
+      // 8. Assign truck WITHOUT driver (auto_assign_default_driver: false)
+      const trkList = await request(app).get('/api/v1/admin/trucks').set('Authorization', `Bearer ${adminToken}`);
+      await request(app)
+        .post(`/api/v1/orders/${orderId}/truck`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ truck_id: trkList.body.data[0].id, auto_assign_default_driver: false });
+
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'TRUCK_ASSIGNED' });
+
+      // 9. Move TRUCK_ASSIGNED -> LOADING without driver must strictly fail (400)
+      const loadingWithoutDriver = await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'LOADING' });
+      expect(loadingWithoutDriver.status).toBe(400);
+      expect(loadingWithoutDriver.body.error.message).toContain('assigned driver');
+
+      // Now assign driver and advance through to COMPLETED
+      const drvList = await request(app).get('/api/v1/admin/drivers').set('Authorization', `Bearer ${adminToken}`);
+      await request(app)
+        .post(`/api/v1/orders/${orderId}/driver`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ driver_id: drvList.body.data[0].id });
+
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'LOADING' });
+
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'OUT_FOR_DELIVERY' });
+
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'DELIVERED' });
+
+      // 10. Backward jump from DELIVERED to CONFIRMED must fail (400)
+      const backwardToConfirmed = await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'CONFIRMED' });
+      expect(backwardToConfirmed.status).toBe(400);
+
+      // Complete the order
+      await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'COMPLETED' });
+
+      // 11. Transition out of terminal COMPLETED state must fail (400)
+      const restartFromCompleted = await request(app)
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'NEW' });
+      expect(restartFromCompleted.status).toBe(400);
+      expect(restartFromCompleted.body.error.message).toContain('COMPLETED');
+    });
+
+    it('23. Guarantees master data mutation does not alter historical transactional order assignments or quotations', async () => {
+      // Create two drivers
+      const drv1Res = await request(app)
+        .post('/api/v1/admin/drivers')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          full_name: 'Historical Driver Alpha',
+          mobile_number: '9822001122',
+          license_number: 'MH31-D1',
+        });
+      const driverAlphaId = drv1Res.body.data.id;
+
+      const drv2Res = await request(app)
+        .post('/api/v1/admin/drivers')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          full_name: 'Future Driver Beta',
+          mobile_number: '9822003344',
+          license_number: 'MH31-D2',
+        });
+      const driverBetaId = drv2Res.body.data.id;
+
+      // Create a truck whose default driver is Driver Alpha
+      const trkRes = await request(app)
+        .post('/api/v1/admin/trucks')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          registration_number: 'MH 31 ZZ 9999',
+          capacity_tons: 16,
+          supported_materials: ['Sand', 'Aggregates'],
+          owner_name: 'Nagpur Logistics Co',
+          owner_mobile: '9822005566',
+          default_driver_id: driverAlphaId,
+        });
+      const truckId = trkRes.body.data.id;
+
+      // Create a supplier with indicative price
+      const supRes = await request(app)
+        .post('/api/v1/admin/suppliers')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          business_name: 'Kanhan River Sand Mines',
+          contact_person: 'Anil Rathod',
+          mobile_number: '9822007788',
+          location_address: 'Kanhan River Bank, Nagpur',
+          supported_materials: ['Sand'],
+          indicative_purchase_price: 18000,
+        });
+      const supplierId = supRes.body.data.id;
+
+      // Create order, issue quotation snapshot, and assign truck (which assigns Driver Alpha)
+      const order = await createTestOrder(6);
+      const orderId = order.orderId;
+
+      await request(app)
+        .post(`/api/v1/orders/${orderId}/quotations`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          material_cost: 18000,
+          transport_cost: 4000,
+          platform_fee: 3000,
+          validity_date: '2026-10-31',
+          advance_order_status: true,
+        });
+
+      await request(app)
+        .post(`/api/v1/orders/${orderId}/supplier`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ supplier_id: supplierId });
+
+      await request(app)
+        .post(`/api/v1/orders/${orderId}/truck`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ truck_id: truckId, auto_assign_default_driver: true });
+
+      // Verify order has driverAlphaId
+      let checkOrder = await request(app).get(`/api/v1/orders/${orderId}`).set('Authorization', `Bearer ${adminToken}`);
+      expect(checkOrder.body.data.order.driver_id).toBe(driverAlphaId);
+      expect(checkOrder.body.data.activeQuotation.material_cost).toBe(18000);
+      expect(checkOrder.body.data.activeQuotation.final_delivered_price).toBe(25000);
+
+      // --- MUTATE MASTER DATA ---
+      // 1. Update Truck's default driver to Driver Beta
+      await request(app)
+        .patch(`/api/v1/admin/trucks/${truckId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ default_driver_id: driverBetaId });
+
+      // 2. Update Supplier's indicative price to 24000
+      await request(app)
+        .patch(`/api/v1/admin/suppliers/${supplierId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ indicative_purchase_price: 24000 });
+
+      // --- VERIFY HISTORICAL TRANSACTIONAL INTEGRITY ---
+      checkOrder = await request(app).get(`/api/v1/orders/${orderId}`).set('Authorization', `Bearer ${adminToken}`);
+      // Order's driver MUST still be Driver Alpha!
+      expect(checkOrder.body.data.order.driver_id).toBe(driverAlphaId);
+      // Order's quotation snapshot MUST still be 18000 and 25000!
+      expect(checkOrder.body.data.activeQuotation.material_cost).toBe(18000);
+      expect(checkOrder.body.data.activeQuotation.final_delivered_price).toBe(25000);
+    });
   });
 });

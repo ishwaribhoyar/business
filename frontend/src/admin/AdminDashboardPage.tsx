@@ -125,13 +125,13 @@ export const AdminDashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Delivered Revenue</span>
+            <span>Quoted Revenue</span>
             <DollarSign className="h-4 w-4 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 font-mono">
             {formatINR(summary?.totalRevenue ?? 0)}
           </h2>
-          <p className="text-[11px] text-slate-400">Sum of confirmed delivered customer quotations</p>
+          <p className="text-[11px] text-slate-400">Total customer value of confirmed and active orders</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">

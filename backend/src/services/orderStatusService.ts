@@ -89,13 +89,16 @@ export class OrderStatusService {
       }
     }
 
-    // 5. Invariants for Logistics States
+    // 5. Invariants for Logistics States (Strict: Supplier + Truck + Driver all required)
     if (targetStatus === 'LOADING' || targetStatus === 'OUT_FOR_DELIVERY') {
       if (!order.supplier_id) {
         throw new ValidationError(`Cannot transition order to '${targetStatus}' without an assigned supplier.`);
       }
       if (!order.truck_id) {
         throw new ValidationError(`Cannot transition order to '${targetStatus}' without an assigned delivery truck.`);
+      }
+      if (!order.driver_id) {
+        throw new ValidationError(`Cannot transition order to '${targetStatus}' without an assigned driver.`);
       }
     }
 

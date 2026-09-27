@@ -113,10 +113,11 @@ export class QuotationService {
     // Authoritative server-side recalculation (never trust client arithmetic)
     const calculation = this.calculateQuotation(context);
 
-    // Validate validity date
-    if (!context.validity_date) {
-      throw new ValidationError('A quotation validity date is required.');
-    }
+    // Optional internal validity date (default to 3 days from now if not explicitly provided)
+    const validityDate =
+      context.validity_date && context.validity_date.trim().length > 0
+        ? context.validity_date
+        : new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
 
     const latestVersion = this.quotationRepo.getLatestVersion(order.id);
     const newVersion = latestVersion + 1;
@@ -141,7 +142,7 @@ export class QuotationService {
       discount: calculation.discount,
       final_delivered_price: calculation.final_delivered_price,
       estimated_gross_margin: calculation.estimated_gross_margin,
-      validity_date: context.validity_date,
+      validity_date: validityDate,
       notes: context.notes ?? null,
       created_by_user_id: context.user_id,
       created_at: now,
