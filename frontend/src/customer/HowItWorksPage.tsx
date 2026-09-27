@@ -123,30 +123,30 @@ export const HowItWorksPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Explanatory Callout: Why Quotation-First */}
+      {/* Explanatory Callout: Quotation-First Model */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-10 space-y-4">
         <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-1 rounded-full uppercase tracking-wider">
           <HelpCircle className="h-3.5 w-3.5" />
-          <span>Product Principle</span>
+          <span>Core MVP Operating Principle</span>
         </div>
         <h3 className="text-xl sm:text-2xl font-bold">
-          Why Quotation-First Instead of Instant Automated E-Commerce?
+          Quotation-First & Human-Assisted Operations
         </h3>
         <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-          Bulk construction materials in India cannot be priced like standard consumer goods. Heavy trucks (tippers carrying 2 to 6 brass or 2,000+ bricks) face physical variables that automated algorithms cannot reliably guess:
+          As defined in our product principles, the MVP deliberately operates on a quotation-first model rather than automated algorithmic pricing:
         </p>
         <ul className="text-xs sm:text-sm text-slate-300 space-y-2 pt-2">
           <li className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-            <span><strong>Road Accessibility:</strong> Narrow lanes, low-hanging overhead cables, or residential weight restrictions dictate whether a 6-wheeler or 10-wheeler can enter.</span>
+            <span><strong>Manual Rate Confirmation:</strong> Material cost, transport haulage, and site requirements are verified and confirmed by our operations desk before communicating the final delivered price.</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-            <span><strong>Quarry Gate Price Volatility:</strong> Raw material rates at regional quarries around Nagpur fluctuate based on seasonal mining and environmental regulations.</span>
+            <span><strong>Quotation Snapshots:</strong> Once communicated, your delivered quote is stored as an agreed snapshot so later market changes do not alter confirmed orders.</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-            <span><strong>Zero Hidden Costs:</strong> By manually verifying vehicle availability and route distance first, we quote a firm price that does not change upon delivery.</span>
+            <span><strong>Transparent Delivery Experience:</strong> You review and confirm the delivered price before any material is loaded and dispatched to your construction site.</span>
           </li>
         </ul>
       </div>

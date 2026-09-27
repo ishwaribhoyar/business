@@ -24,7 +24,7 @@ import {
 export const QuoteOrderPage: React.FC = () => {
   usePageMeta(
     'Request Delivered Quote',
-    'Request an all-inclusive delivered price quote for bulk sand, bricks, aggregate, or murum delivery in Nagpur. Transparent pricing, verified local quarries, and managed truck transport.'
+    'Request an all-inclusive delivered price quote for bulk sand, bricks, aggregate, or murum delivery in Nagpur. Transparent pricing, verified supplier network, and managed truck transport.'
   );
 
   const [searchParams] = useSearchParams();
@@ -238,7 +238,7 @@ export const QuoteOrderPage: React.FC = () => {
               Request Ref: {submittedData.orderReference}
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-2 max-w-md mx-auto leading-relaxed">
-              Your bulk material requirement has been logged. Our Nagpur operations desk is calculating the exact delivered price with verified quarry and transport haulage.
+              Your bulk material requirement has been logged. Our Nagpur operations desk is calculating the exact delivered price with verified supplier and transport haulage.
             </p>
           </div>
 
@@ -323,7 +323,7 @@ export const QuoteOrderPage: React.FC = () => {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
       <div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold mb-3">
-          <span>📍 Nagpur & Serviceable Nearby Areas</span>
+          <span>📍 Nagpur and currently serviceable nearby areas</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
           Request Delivered Quotation
@@ -424,7 +424,7 @@ export const QuoteOrderPage: React.FC = () => {
               <Input
                 label="Site Address & Landmarks"
                 required
-                placeholder="e.g., Plot 42, Near Metro Pillar 110, Wardha Road, Nagpur"
+                placeholder="e.g., Construction site address, road/landmark, Nagpur area"
                 value={formData.delivery_address}
                 onChange={(e) => setFormData({ ...formData, delivery_address: e.target.value })}
                 error={fieldErrors.delivery_address}
@@ -436,11 +436,11 @@ export const QuoteOrderPage: React.FC = () => {
               <Input
                 label="Area / Pincode"
                 required
-                placeholder="e.g., Manish Nagar (440015)"
+                placeholder="e.g., Area name or 6-digit Nagpur pincode"
                 value={formData.area_pincode}
                 onChange={(e) => setFormData({ ...formData, area_pincode: e.target.value })}
                 error={fieldErrors.area_pincode}
-                helperText="Used to calculate haulage distance from quarry."
+                helperText="Used to calculate transport distance from source."
               />
 
               <Input
@@ -477,7 +477,7 @@ export const QuoteOrderPage: React.FC = () => {
             <Input
               label="Contact Person / Firm Name"
               required
-              placeholder="e.g., Rajesh Sharma / Sharma Builders"
+              placeholder="e.g., Contact Name / Company Name"
               value={formData.customer_name}
               onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
               error={fieldErrors.customer_name}
@@ -545,7 +545,7 @@ export const QuoteOrderPage: React.FC = () => {
           </Button>
 
           <p className="text-[11px] text-slate-500 text-center leading-normal">
-            * <strong>Quotation-First Model:</strong> Submitting this request creates an operational lead for our Nagpur team. We calculate quarry pricing and truck haulage, then send you the delivered quotation. No instant online payments or automatic cards.
+            * <strong>Quotation-First Model:</strong> Submitting this request creates an operational lead for our Nagpur team. We calculate supplier pricing and truck transport haulage, then send you the delivered quotation. No instant online payments or automatic cards.
           </p>
         </div>
       </form>

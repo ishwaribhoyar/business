@@ -84,7 +84,7 @@ export const Footer: React.FC = () => {
                 <span>{APP_CONFIG.supportEmail}</span>
               </p>
               <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-800">
-                Operating Hours: 7:00 AM – 8:00 PM (Monday – Sunday)
+                Delivered price calculated per request based on site location.
               </p>
             </div>
           </div>

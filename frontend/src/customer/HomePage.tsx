@@ -99,7 +99,7 @@ export const HomePage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />
-                <span>Verified Local Quarries</span>
+                <span>Verified Supplier Network</span>
               </div>
               <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
                 <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />
@@ -258,9 +258,9 @@ export const HomePage: React.FC = () => {
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-900 mb-1.5">Verified Quarry & Kiln Network</h3>
+              <h3 className="font-bold text-base text-slate-900 mb-1.5">Verified Supplier Network</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                We partner exclusively with verified quarries, brick kilns, and aggregate crushers across Nagpur, ensuring uniform quality and lawful compliance.
+                We coordinate materials through verified local suppliers and third-party truck partners serving Nagpur and currently serviceable nearby areas.
               </p>
             </div>
           </div>
@@ -272,26 +272,26 @@ export const HomePage: React.FC = () => {
             <div>
               <h3 className="font-bold text-base text-slate-900 mb-1.5">Human-Assisted Operations</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Experienced dispatch desk tracking every delivery, coordinating directly with truck drivers and site engineers to prevent costly project delays.
+                Our operations desk manually calculates delivered quotations and coordinates between customers, suppliers, and truck operators.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 5. Partner Truck Fleet & QR Campaign Section (PRD Section 5 & 16) */}
+      {/* 5. Partner Truck Fleet Branding (PRD Section 5) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent rounded-3xl p-6 sm:p-10 border border-amber-200 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-3 max-w-xl">
             <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full uppercase tracking-wider">
               <Truck className="h-3.5 w-3.5" />
-              <span>Partner Truck Network</span>
+              <span>Partner Delivery Network</span>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-              Direct Quarry-to-Site Haulage in Nagpur
+              Dedicated Delivery Network
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Our managed network coordinates verified third-party tippers and trucks. Look for our partner trucks across Nagpur construction corridors — scan the truck QR code to instantly submit your site requirement!
+              We coordinate deliveries through verified third-party trucks. Partner trucks may display platform branding panels and QR codes for convenient on-site quote requests.
             </p>
           </div>
 
@@ -307,58 +307,25 @@ export const HomePage: React.FC = () => {
               to="/how-it-works"
               className="border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold px-5 py-3 rounded-xl text-xs sm:text-sm"
             >
-              Learn More
+              How It Works
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 6. Nagpur Service Zones */}
+      {/* 6. Service Area (PRD Section 5 verbatim) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-xs space-y-6">
-          <div className="text-center max-w-2xl mx-auto">
-            <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-              Active Delivery Service Areas in Nagpur
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              We coordinate material deliveries to construction sites across all major residential, commercial, and industrial corridors.
-            </p>
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-xs text-center space-y-3">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full uppercase tracking-wider">
+            <MapPin className="h-3.5 w-3.5" />
+            <span>Service Area</span>
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-700">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Wardha Road & Manish Nagar</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Besa, Ghogli & Beltarodi</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Hingna Road & MIDC</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>MIHAN & Butibori Corridors</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Dharampeth & Ramdaspeth</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Civil Lines & Sadar</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Koradi & Kamptee Road</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span>Wadi & Amravati Road</span>
-            </div>
-          </div>
+          <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
+            {APP_CONFIG.serviceArea}
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
+            The platform currently serves Nagpur and currently serviceable nearby areas. Each quote request is verified by our operations team based on supplier availability and delivery location accessibility.
+          </p>
         </div>
       </section>
     </div>

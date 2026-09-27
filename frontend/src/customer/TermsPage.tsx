@@ -20,6 +20,16 @@ export const TermsPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-xs text-xs sm:text-sm text-slate-700 space-y-6 leading-relaxed">
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-xs text-amber-900 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold block uppercase tracking-wider">Draft MVP Commercial Terms (Pending Legal & Business Approval)</span>
+            <p className="mt-0.5 leading-relaxed">
+              These operational guidelines outline quotation-first procedures and site delivery responsibilities during the Nagpur MVP pilot.
+            </p>
+          </div>
+        </div>
+
         <p>
           These Terms of Service govern all requests, delivered quotations, and coordinated deliveries facilitated by <strong>Nagpur Building Materials Platform</strong> within Nagpur and surrounding serviceable areas.
         </p>

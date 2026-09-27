@@ -87,26 +87,26 @@ export const ContactPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Operational Schedule & Quick WhatsApp Action */}
+        {/* Operations Desk Details & Quick WhatsApp Action */}
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4 text-xs text-slate-600">
-            <h2 className="text-base font-bold text-slate-900">Operating Hours & Service Zone</h2>
+            <h2 className="text-base font-bold text-slate-900">Operations Desk & Service Area</h2>
             <div className="space-y-3.5">
               <div className="flex gap-3 items-start">
                 <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold text-slate-900 block text-xs">Dispatch & Coordination Hours:</span>
-                  <span>Monday – Sunday: 7:00 AM – 8:00 PM</span>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">Early morning dispatch coordination starts at 6:30 AM for scheduled deliveries.</span>
+                  <span className="font-bold text-slate-900 block text-xs">Human-Assisted Coordination:</span>
+                  <span>Delivered quotations and site inquiries are processed by our internal operations desk.</span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">Submit your request on the website or message us directly via WhatsApp.</span>
                 </div>
               </div>
 
               <div className="flex gap-3 items-start pt-2 border-t border-slate-100">
                 <MapPin className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold text-slate-900 block text-xs">Primary Market Area:</span>
+                  <span className="font-bold text-slate-900 block text-xs">Service Area:</span>
                   <span>{APP_CONFIG.serviceArea}</span>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">Covering all urban, suburban, and industrial corridors.</span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">Site serviceability is confirmed during quotation review.</span>
                 </div>
               </div>
             </div>
@@ -127,10 +127,10 @@ export const ContactPage: React.FC = () => {
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
                 >
                   <option value="Material Delivered Quote">Material Delivered Quote</option>
-                  <option value="Urgent Site Delivery">Urgent Site Delivery</option>
+                  <option value="Delivery Coordination">Delivery Coordination</option>
                   <option value="Contractor Bulk Sourcing">Contractor Bulk Sourcing</option>
                   <option value="Truck Owner / Fleet Partnership">Truck Owner / Fleet Partnership</option>
-                  <option value="Quarry / Supplier Registration">Quarry / Supplier Registration</option>
+                  <option value="Supplier Registration">Supplier Registration</option>
                 </select>
               </div>
 
@@ -138,7 +138,7 @@ export const ContactPage: React.FC = () => {
                 <label className="block text-slate-600 font-medium mb-1">Site Area / Location</label>
                 <input
                   type="text"
-                  placeholder="e.g., Wardha Road, Hingna, Manish Nagar"
+                  placeholder="e.g., Site address or Nagpur pincode"
                   value={siteArea}
                   onChange={(e) => setSiteArea(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"

@@ -30,33 +30,33 @@ export const AboutPage: React.FC = () => {
           Modernizing Bulk Construction Logistics in Nagpur
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 mt-2 max-w-2xl leading-relaxed">
-          We operate an asset-light managed marketplace connecting construction sites with verified local quarries, brick manufacturers, and dedicated partner transport.
+          We operate an asset-light managed marketplace connecting construction customers with verified material suppliers and third-party truck owners in Nagpur.
         </p>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-xs space-y-8 text-xs sm:text-sm text-slate-700 leading-relaxed">
         {/* Core Model */}
         <section className="space-y-3">
-          <h2 className="text-lg font-bold text-slate-900">The Asset-Light Managed Marketplace Model</h2>
+          <h2 className="text-lg font-bold text-slate-900">Asset-Light Managed Marketplace Model</h2>
           <p>
-            In traditional construction material sourcing across Nagpur, builders, contractors, and home builders must navigate opaque local markets. Securing sand, aggregate, or bricks often requires calling multiple intermediaries, negotiating separate haulage with unvetted truck drivers, and risking unexpected charges or unverified material upon arrival.
+            In traditional bulk building material procurement, customers often rely on fragmented phone calls and local traders to source materials. Material pricing and delivered pricing can vary widely depending on transport and site location.
           </p>
           <p>
-            Our platform operates as a <strong>managed marketplace</strong>. We do not own heavy mining equipment or vehicle fleets. Instead, we coordinate supply through an internal operations desk that connects construction customers directly with verified, lawful quarries and partner truck operators.
+            As defined in our Business Requirements, our platform operates as an <strong>asset-light managed marketplace</strong>. We do not own inventory or transport fleets. Instead, we coordinate supply through an internal operations desk that connects customers with verified material suppliers and third-party truck owners.
           </p>
         </section>
 
         {/* Target Segments */}
         <section className="pt-6 border-t border-slate-100 space-y-4">
-          <h2 className="text-lg font-bold text-slate-900">Who We Serve</h2>
+          <h2 className="text-lg font-bold text-slate-900">Target Customers (BRD Section 5)</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <HardHat className="h-4 w-4 text-amber-600" />
-                <span>Civil Contractors & Developers</span>
+                <span>Civil Contractors</span>
               </div>
               <p className="text-xs text-slate-500">
-                Regular bulk procurement with guaranteed delivered pricing snapshots and reliable dispatch coordination.
+                Frequent bulk orders and reliable delivery coordination.
               </p>
             </div>
 
@@ -66,7 +66,7 @@ export const AboutPage: React.FC = () => {
                 <span>Small & Medium Builders</span>
               </div>
               <p className="text-xs text-slate-500">
-                Dependable multi-truck deliveries for foundation plinths, RCC slab castings, and brickwork phases.
+                Recurring material procurement with transparent delivered quotations.
               </p>
             </div>
 
@@ -76,7 +76,7 @@ export const AboutPage: React.FC = () => {
                 <span>Site Supervisors & Engineers</span>
               </div>
               <p className="text-xs text-slate-500">
-                Fast sourcing, direct driver coordination, and immediate inspection support at the site gate.
+                Fast sourcing and direct site coordination.
               </p>
             </div>
 
@@ -86,7 +86,7 @@ export const AboutPage: React.FC = () => {
                 <span>Individual House Builders</span>
               </div>
               <p className="text-xs text-slate-500">
-                Simple, transparent ordering without requiring trade accounts or dealing with predatory local brokers.
+                Simple delivered-price ordering without requiring complex accounts.
               </p>
             </div>
           </div>
@@ -94,19 +94,19 @@ export const AboutPage: React.FC = () => {
 
         {/* Operating Principles */}
         <section className="pt-6 border-t border-slate-100 space-y-3">
-          <h2 className="text-lg font-bold text-slate-900">Our Core Principles</h2>
+          <h2 className="text-lg font-bold text-slate-900">Operating Principles</h2>
           <ul className="space-y-2 text-xs sm:text-sm text-slate-600">
             <li className="flex items-start gap-2.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span><strong>Quotation-First Pricing:</strong> Every quote is explicitly calculated for the distance and vehicle accessibility of your specific site.</span>
+              <span><strong>Quotation-First Pricing:</strong> Prices are manually verified and confirmed by our operations desk based on supplier availability and transport distance.</span>
             </li>
             <li className="flex items-start gap-2.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span><strong>Verified Network:</strong> We work solely with lawful quarries, compliant crushers, and registered truck owners in Nagpur district.</span>
+              <span><strong>Verified Supplier Network:</strong> Materials are sourced from verified local suppliers.</span>
             </li>
             <li className="flex items-start gap-2.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span><strong>Human-Assisted Operations:</strong> Experienced logistics desk coordinates between the quarry gate, truck driver, and site engineer.</span>
+              <span><strong>Human-Assisted Operations:</strong> Our internal operations desk assists with pricing, order dispatch, and delivery status tracking.</span>
             </li>
           </ul>
         </section>

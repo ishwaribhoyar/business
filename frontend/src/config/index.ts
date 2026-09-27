@@ -1,10 +1,10 @@
 export const APP_CONFIG = {
   appName: 'Nagpur Building Materials',
   tagline: 'Bulk Construction Material Delivery in Nagpur',
-  serviceArea: 'Nagpur & nearby serviceable areas',
-  phone: '+917120000000',
-  whatsappNumber: '+919876543210',
-  supportEmail: 'support@nagpurmaterials.local',
+  serviceArea: 'Nagpur and currently serviceable nearby areas',
+  phone: import.meta.env.VITE_OPERATIONS_PHONE || '+917120000000',
+  whatsappNumber: import.meta.env.VITE_OPERATIONS_WHATSAPP || '+919876543210',
+  supportEmail: import.meta.env.VITE_SUPPORT_EMAIL || 'support@nagpurmaterials.local',
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   mvpMaterials: [
     { id: 'prod_sand_01', name: 'Sand', slug: 'sand', unit: 'Brass' },

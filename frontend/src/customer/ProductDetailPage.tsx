@@ -109,7 +109,7 @@ export const ProductDetailPage: React.FC = () => {
               {product.name}
             </h1>
             <span className="text-xs text-slate-500 block mt-1">
-              Service Area: Nagpur & Nearby Serviceable Zones
+              Service Area: Nagpur and currently serviceable nearby areas
             </span>
           </div>
 
@@ -202,7 +202,7 @@ export const ProductDetailPage: React.FC = () => {
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-slate-500 flex items-center gap-2">
             <Truck className="h-4 w-4 text-amber-600" />
-            <span>Dedicated partner truck dispatch across Nagpur district</span>
+            <span>Dedicated truck transport across Nagpur and nearby areas</span>
           </div>
           <Link
             to={`/get-quote?material=${product.id}`}

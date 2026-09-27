@@ -18,7 +18,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Quotation-First Customer Journey** | PRD / BRD | PRD §2, §5; BRD §9 | Clear customer communication: Request → Review → Delivered quotation → Confirmation → Coordinated site delivery. No automated/fake pricing. | `IMPLEMENTED` | Explicit callouts on Home, How It Works, Products, and Quote confirmation pages. |
 | **Initial 4 MVP Materials** | PRD / BRD | PRD §5, §6; BRD §1, §7 | Sand, Bricks, Black Stone Aggregate, Murum. No invented catalog items. | `IMPLEMENTED` | Seeded in DB; served via `/api/v1/products`; rendered on Home and Products pages. |
-| **Nagpur Service Area Scope** | PRD / BRD | PRD §5; BRD §1 | Exclusively Nagpur and currently serviceable nearby corridors (Wardha Rd, Hingna, Besa, Butibori, MIHAN, etc.). | `IMPLEMENTED` | Clearly communicated across Hero, Navbar, Footer, and Service Area sections. |
+| **Nagpur Service Area Scope** | PRD / BRD | PRD §5; BRD §1 | Exclusively Nagpur and currently serviceable nearby areas per PRD §5 / BRD §1 (Phase 1.1 audited: removed unvetted corridor names). | `IMPLEMENTED` | Clearly communicated across Hero, Navbar, Footer, and Service Area sections. |
 | **Home Page Value Proposition** | PRD | PRD §5 | Hero with service area tag, Order Now / Get Quote primary CTA, WhatsApp secondary CTA. No unsupported claims. | `IMPLEMENTED` | Built in `frontend/src/customer/HomePage.tsx`. |
 | **Home Page 5-Step Process** | PRD | PRD §5 | 5-step visual walkthrough of quotation-first ordering, operations calculation, and site unloading. | `IMPLEMENTED` | Built in `HomePage.tsx` and `HowItWorksPage.tsx`. |
 | **Partner Truck Fleet & QR Tracking**| PRD | PRD §5, §16; BRD §11 | Dedicated section showcasing partner truck network and QR code attribution parameter (`qr_campaign_code`). | `IMPLEMENTED` | Integrated in `HomePage.tsx` and accepted in `QuoteOrderPage.tsx`. |
@@ -36,9 +36,9 @@
 | **Duplicate Submission Protection** | Prompt | Section 23 | Frontend disables submit and debounces multi-clicks; Backend returns existing order if identical request sent within 60s. | `IMPLEMENTED` | Verified in test #12 in `phase1-customer.test.ts`. |
 | **Public API Security & Data Masking**| PRD | PRD §17, §18 | Customer directory and admin endpoints require JWT auth. Logs redact sensitive PII. No customer list exposed. | `IMPLEMENTED` | Verified in test #13 in `phase1-customer.test.ts`. |
 | **SEO Foundations** | PRD | PRD §17 | Semantic headings, unique document titles, and meta descriptions across all customer pages. | `IMPLEMENTED` | Implemented via `usePageMeta` hook across all customer views. |
-| **About Page Truthfulness** | PRD / BRD | PRD §4; BRD §2, §5 | Explains asset-light managed marketplace honestly without fabricated metrics, awards, or false claims of truck ownership. | `IMPLEMENTED` | Built in `frontend/src/customer/AboutPage.tsx`. |
-| **Contact Page Operations Desk** | PRD | PRD §4, §5 | Direct phone, WhatsApp, email, operating hours (7:00 AM – 8:00 PM), and interactive message builder. | `IMPLEMENTED` | Built in `frontend/src/customer/ContactPage.tsx`. |
-| **Privacy Policy & Terms** | PRD | PRD §4, §17, §18 | Concrete policies detailing data handling, quote validity, site access, and on-site material inspection. | `IMPLEMENTED` | Built in `PrivacyPolicyPage.tsx` and `TermsPage.tsx`. |
+| **About Page Truthfulness** | PRD / BRD | PRD §4; BRD §2, §5 | Explains asset-light managed marketplace honestly without fabricated metrics, awards, or false claims of truck ownership. Aligns customer profiles with BRD §5. | `IMPLEMENTED` | Built in `frontend/src/customer/AboutPage.tsx`. |
+| **Contact Page Operations Desk** | PRD | PRD §4, §5 | Direct phone, WhatsApp, email (bound to environment configuration), responsive operations desk contact and message builder (Phase 1.1 audited: removed fabricated operating hours). | `IMPLEMENTED` | Built in `frontend/src/customer/ContactPage.tsx`. |
+| **Privacy Policy & Terms** | PRD | PRD §4, §17, §18 | Concrete policies detailing data handling, quote validity, site access, and on-site material inspection. Clearly flagged with draft review banners pending legal approval. | `IMPLEMENTED` | Built in `PrivacyPolicyPage.tsx` and `TermsPage.tsx`. |
 | **Automated Test Suite** | Prompt | Section 53 | Comprehensive automated test coverage for Phase 1 endpoints, validation, idempotency, security, and reference IDs. | `IMPLEMENTED` | 26/26 tests passing (`13 foundation + 13 phase 1`). |
 | **Automated Dynamic Pricing** | PRD / BRD | PRD §2; BRD §7 | Dynamic price engine excluded from Phase 1. | `NOT APPLICABLE` | Strict guardrail enforced. |
 | **Online Payments / Gateways** | PRD / BRD | PRD §14; BRD §7 | Online payment gateways (Razorpay/Stripe) excluded from Phase 1. | `NOT APPLICABLE` | Phase 2+ backlog. |
@@ -52,7 +52,8 @@
 ```text
 Phase 0 Foundation:                    COMPLETE (13/13 passing tests)
 Phase 0.1 Domain Corrections:          COMPLETE (Drivers decoupled from trucks)
-Phase 1 Customer Marketplace:          COMPLETE & VERIFIED (13/13 passing tests)
+Phase 1 Customer Marketplace:          COMPLETE — TECHNICALLY VERIFIED
+Phase 1.1 Factual Cleanup:             COMPLETE (Audited against PRD/BRD, removed unsupported business claims)
 Total Automated Tests:                 26/26 PASSING (100% pass rate)
 Production Build:                      CLEAN (Backend tsc + Frontend Vite build)
 ```

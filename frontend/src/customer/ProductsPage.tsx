@@ -57,7 +57,7 @@ export const ProductsPage: React.FC = () => {
           Bulk Construction Materials in Nagpur
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 mt-2 max-w-2xl leading-relaxed">
-          We coordinate bulk procurement and dedicated truck delivery for 4 core construction materials in Nagpur. Sourced directly from verified quarries and kilns, delivered quotes are calculated per site location.
+          We coordinate bulk procurement and dedicated truck delivery for 4 core construction materials in Nagpur. Sourced through verified suppliers, delivered quotes are calculated per site location.
         </p>
       </div>
 
@@ -130,7 +130,7 @@ export const ProductsPage: React.FC = () => {
         <div>
           <span className="font-bold block">Quotation-First Pricing in Nagpur</span>
           <p className="mt-0.5 text-amber-800 leading-relaxed">
-            Delivered pricing varies based on quarry gate rates, truck type (e.g. 6-wheeler, 10-wheeler), and exact site distance. Submit your site location on the quote form to receive a fixed delivered price.
+            Delivered pricing varies based on supplier gate rates, truck type (e.g. 6-wheeler, 10-wheeler), and exact site distance. Submit your site location on the quote form to receive a fixed delivered price.
           </p>
         </div>
       </div>
