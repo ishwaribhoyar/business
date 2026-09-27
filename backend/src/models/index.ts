@@ -66,6 +66,19 @@ export interface Supplier {
 
 export type TruckAvailability = 'Available' | 'Busy' | 'Offline';
 
+export interface Driver {
+  id: string;
+  full_name: string;
+  mobile_number: string;
+  license_number?: string | null;
+  verification_status: VerificationStatus;
+  availability_status: TruckAvailability;
+  notes?: string | null;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Truck {
   id: string;
   registration_number: string;
@@ -73,8 +86,7 @@ export interface Truck {
   supported_materials: string; // JSON array string
   owner_name: string;
   owner_mobile: string;
-  driver_name: string;
-  driver_mobile: string;
+  default_driver_id?: string | null;
   availability_status: TruckAvailability;
   indicative_transport_rate?: number | null;
   verification_status: VerificationStatus;
@@ -112,6 +124,7 @@ export interface Order {
   cancellation_reason?: string | null;
   supplier_id?: string | null;
   truck_id?: string | null;
+  driver_id?: string | null;
   qr_campaign_id?: string | null;
   created_at: string;
   updated_at: string;

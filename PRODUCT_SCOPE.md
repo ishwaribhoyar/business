@@ -5,7 +5,36 @@
 
 ---
 
-## 1. Product Identity
+## 1. Specification Hierarchy
+
+Every technical decision, schema change, or feature implementation must follow this strict hierarchy:
+
+```
+                    PRODUCT TRUTH
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+   PRD (PRD.docx)          BRD (BRD.docx)
+             │                       │
+             └───────────┬───────────┘
+                         ▼
+                  PRODUCT_SCOPE.md
+                         │
+                         ▼
+                TECHNICAL ARCHITECTURE
+                         │
+                         ▼
+                   PHASE PROMPT
+                         │
+                         ▼
+                    AI AGENT
+```
+
+If an instruction conflicts with `PRD.docx` or `BRD.docx`, the authoritative documents govern.
+
+---
+
+## 2. Product Identity
 
 - **Product Name:** Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 - **Primary Market:** Nagpur and currently serviceable nearby areas in Maharashtra, India.
@@ -15,7 +44,7 @@
 
 ---
 
-## 2. Business & Operating Model
+## 3. Business & Operating Model
 
 - **Business Model:** Asset-light managed marketplace / delivery coordination.
 - **Physical Assets:** The platform does **NOT** own material inventory or trucks.
@@ -26,7 +55,7 @@
 
 ---
 
-## 3. Target Customers
+## 4. Target Customers
 
 1. Civil contractors
 2. Small and medium builders
@@ -36,7 +65,7 @@
 
 ---
 
-## 4. MVP Materials (Strictly Limited to 4)
+## 5. MVP Materials (Strictly Limited to 4)
 
 1. **Sand**
 2. **Bricks**
@@ -47,7 +76,7 @@
 
 ---
 
-## 5. Scope Boundaries
+## 6. Scope Boundaries
 
 ### In Scope for MVP:
 - **Customer Side:**
@@ -64,7 +93,7 @@
   - Order management through full 11-stage lifecycle
   - Manual Quotation builder (material cost, transport cost, margin, delivered price)
   - Supplier registry (indicative prices, contact, verification, fulfillment notes)
-  - Truck & Driver registry (capacity, availability, rates, documents)
+  - Truck & Driver registry (decoupled drivers, vehicle capacities, availability, rates, documents)
   - Payment status tracking (Pending, Partially Paid, Paid, Refunded)
   - Financial records (revenue, direct costs, gross margin)
   - Basic reporting and data export
@@ -87,7 +116,20 @@
 
 ---
 
-## 6. Order Lifecycle State Machine
+## 7. Phase Boundary & Implementation Status
+
+```text
+Phase 0 Foundation:          COMPLETE (Verified with Phase 0.1 fixes)
+Phase 1 Groundwork:          PARTIALLY IMPLEMENTED EARLY (Retained as early groundwork)
+Full MVP Operational System: NOT COMPLETE (Awaiting Phase 1 & Phase 2 implementations)
+```
+
+> **Notice on Scope Discipline:**  
+> During Phase 0 setup, initial customer page shells and the quote submission endpoint (`POST /api/v1/orders/quote-request`) were scaffolded early to establish layout contracts and validation conventions. These represent **early Phase 1 groundwork**, not final customer features. Future agents must not implement further business logic without explicit phase prompt instructions.
+
+---
+
+## 8. Order Lifecycle State Machine
 
 Every order must strictly transition through these states:
 
@@ -122,12 +164,3 @@ DELIVERED
 COMPLETED
 ```
 *(An order can transition to `CANCELLED` from active states with a recorded reason).*
-
----
-
-## 7. Core Architectural Philosophy
-
-1. **Mobile-first & Simple:** Fast loading on mobile networks.
-2. **Quotation-first:** Prevents commercial loss from volatile transport and quarry rates.
-3. **Traceability:** Every status change, cost snapshot, and quotation must be recorded with audit logs.
-4. **Data Ownership:** System must run on company-owned infrastructure and accounts.

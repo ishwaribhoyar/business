@@ -80,7 +80,21 @@ CREATE TABLE IF NOT EXISTS suppliers (
   updated_at TEXT NOT NULL
 );
 
--- 6. Trucks & Drivers (Asset-light third-party partner logistics)
+-- 6. Drivers (Asset-light driver partner registry; decoupled from specific trucks)
+CREATE TABLE IF NOT EXISTS drivers (
+  id TEXT PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  mobile_number TEXT NOT NULL,
+  license_number TEXT,
+  verification_status TEXT NOT NULL CHECK(verification_status IN ('VERIFIED', 'PENDING', 'REJECTED')),
+  availability_status TEXT NOT NULL CHECK(availability_status IN ('Available', 'Busy', 'Offline')) DEFAULT 'Available',
+  notes TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- 7. Trucks (Asset-light third-party partner logistics fleet)
 CREATE TABLE IF NOT EXISTS trucks (
   id TEXT PRIMARY KEY,
   registration_number TEXT UNIQUE NOT NULL,
@@ -88,18 +102,18 @@ CREATE TABLE IF NOT EXISTS trucks (
   supported_materials TEXT NOT NULL, -- JSON array of strings
   owner_name TEXT NOT NULL,
   owner_mobile TEXT NOT NULL,
-  driver_name TEXT NOT NULL,
-  driver_mobile TEXT NOT NULL,
-  availability_status TEXT NOT NULL CHECK(availability_status IN ('Available', 'Busy', 'Offline')),
+  default_driver_id TEXT,
+  availability_status TEXT NOT NULL CHECK(availability_status IN ('Available', 'Busy', 'Offline')) DEFAULT 'Available',
   indicative_transport_rate REAL,
   verification_status TEXT NOT NULL CHECK(verification_status IN ('VERIFIED', 'PENDING', 'REJECTED')),
   notes TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (default_driver_id) REFERENCES drivers(id)
 );
 
--- 7. Orders (Central business transaction entity)
+-- 8. Orders (Central business transaction entity)
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,
   order_reference TEXT UNIQUE NOT NULL,
@@ -127,6 +141,7 @@ CREATE TABLE IF NOT EXISTS orders (
   cancellation_reason TEXT,
   supplier_id TEXT,
   truck_id TEXT,
+  driver_id TEXT,
   qr_campaign_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -134,10 +149,11 @@ CREATE TABLE IF NOT EXISTS orders (
   FOREIGN KEY (product_id) REFERENCES products(id),
   FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
   FOREIGN KEY (truck_id) REFERENCES trucks(id),
+  FOREIGN KEY (driver_id) REFERENCES drivers(id),
   FOREIGN KEY (qr_campaign_id) REFERENCES qr_campaigns(id)
 );
 
--- 8. Order Status History (Traceable audit of state transitions)
+-- 9. Order Status History (Traceable audit of state transitions)
 CREATE TABLE IF NOT EXISTS order_status_history (
   id TEXT PRIMARY KEY,
   order_id TEXT NOT NULL,
@@ -150,7 +166,7 @@ CREATE TABLE IF NOT EXISTS order_status_history (
   FOREIGN KEY (changed_by_user_id) REFERENCES admin_users(id)
 );
 
--- 9. Quotations (Quotation-first pricing snapshot model)
+-- 10. Quotations (Quotation-first pricing snapshot model)
 CREATE TABLE IF NOT EXISTS quotations (
   id TEXT PRIMARY KEY,
   quotation_reference TEXT UNIQUE NOT NULL,
@@ -170,7 +186,7 @@ CREATE TABLE IF NOT EXISTS quotations (
   FOREIGN KEY (created_by_user_id) REFERENCES admin_users(id)
 );
 
--- 10. Payments (Payment status tracking)
+-- 11. Payments (Payment status tracking)
 CREATE TABLE IF NOT EXISTS payments (
   id TEXT PRIMARY KEY,
   order_id TEXT NOT NULL,
@@ -186,7 +202,7 @@ CREATE TABLE IF NOT EXISTS payments (
   FOREIGN KEY (recorded_by_user_id) REFERENCES admin_users(id)
 );
 
--- 11. Financial Records (Actual costs, revenue, and gross margin per order)
+-- 12. Financial Records (Actual costs, revenue, and gross margin per order)
 CREATE TABLE IF NOT EXISTS financial_records (
   id TEXT PRIMARY KEY,
   order_id TEXT UNIQUE NOT NULL,
@@ -202,7 +218,7 @@ CREATE TABLE IF NOT EXISTS financial_records (
   FOREIGN KEY (recorded_by_user_id) REFERENCES admin_users(id)
 );
 
--- 12. Audit Logs (Operational security audit trail)
+-- 13. Audit Logs (Operational security audit trail)
 CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY,
   user_id TEXT,
@@ -219,8 +235,12 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_product ON orders(product_id);
+CREATE INDEX IF NOT EXISTS idx_orders_truck ON orders(truck_id);
+CREATE INDEX IF NOT EXISTS idx_orders_driver ON orders(driver_id);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_customers_mobile ON customers(mobile_number);
+CREATE INDEX IF NOT EXISTS idx_drivers_mobile ON drivers(mobile_number);
+CREATE INDEX IF NOT EXISTS idx_trucks_default_driver ON trucks(default_driver_id);
 CREATE INDEX IF NOT EXISTS idx_order_status_history_order ON order_status_history(order_id);
 CREATE INDEX IF NOT EXISTS idx_quotations_order ON quotations(order_id);
 CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);

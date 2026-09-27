@@ -73,14 +73,22 @@ export const supplierCreateSchema = z.object({
   fulfillment_notes: z.string().max(1000).optional(),
 });
 
+export const driverCreateSchema = z.object({
+  full_name: z.string().min(2, 'Driver name is required').trim(),
+  mobile_number: z.string().regex(indianMobileRegex, 'Valid 10-digit driver mobile is required'),
+  license_number: z.string().max(50).optional(),
+  verification_status: z.enum(['VERIFIED', 'PENDING', 'REJECTED']).default('PENDING'),
+  availability_status: z.enum(['Available', 'Busy', 'Offline']).default('Available'),
+  notes: z.string().max(1000).optional(),
+});
+
 export const truckCreateSchema = z.object({
   registration_number: z.string().min(4, 'Valid vehicle registration number is required').trim(),
   capacity_tons: z.number().positive('Capacity in tons must be positive'),
   supported_materials: z.array(z.string()).min(1, 'At least one supported material is required'),
   owner_name: z.string().min(2, 'Owner name is required').trim(),
   owner_mobile: z.string().regex(indianMobileRegex, 'Valid 10-digit owner mobile is required'),
-  driver_name: z.string().min(2, 'Driver name is required').trim(),
-  driver_mobile: z.string().regex(indianMobileRegex, 'Valid 10-digit driver mobile is required'),
+  default_driver_id: z.string().optional(),
   availability_status: z.enum(['Available', 'Busy', 'Offline']).default('Available'),
   indicative_transport_rate: z.number().positive().optional(),
   notes: z.string().max(1000).optional(),

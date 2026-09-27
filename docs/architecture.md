@@ -1,7 +1,7 @@
 # Architecture Documentation
 
 **Product:** Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP  
-**Version:** Phase 0 Baseline  
+**Version:** Phase 0 Baseline (with qualified Phase 1 groundwork implemented early)  
 **Authoritative Documents:** `Building_Material_Marketplace_PRD.docx`, `Building_Material_Marketplace_BRD.docx`
 
 ---
@@ -35,14 +35,14 @@ The architecture of this platform directly mirrors the core product principles o
          ▼             ▼             ▼
       ORDERS       QUOTATIONS     CUSTOMERS
          │             │
-         ├─────────────┼──────────────┐
-         │             │              │
-         ▼             ▼              ▼
-     SUPPLIERS      TRUCKS         PAYMENTS
-         │             │              │
-         └─────────────┼──────────────┘
+         ├─────────────┼──────────────┬──────────────┐
+         │             │              │              │
+         ▼             ▼              ▼              ▼
+     SUPPLIERS      TRUCKS         DRIVERS        PAYMENTS
+         │             │              │              │
+         └─────────────┼──────────────┴──────────────┘
                        ▼
-                    DATABASE (SQLite / PostgreSQL ready)
+                    DATABASE (SQLite for MVP)
                        │
                        ▼
                  ADMIN DASHBOARD (Protected Operations Area)
@@ -90,22 +90,24 @@ The frontend application provides two distinct operational domains within a sing
 
 2. **Operations & Admin Area (`/admin`):**
    - Protected by `ProtectedRoute` route guards.
-   - Routes: Dashboard (`/admin`), Orders (`/admin/orders`), Customers (`/admin/customers`), Suppliers (`/admin/suppliers`), Trucks (`/admin/trucks`), Quotations (`/admin/quotations`), Payments (`/admin/payments`), Reports (`/admin/reports`), Settings (`/admin/settings`).
+   - Routes: Dashboard (`/admin`), Orders (`/admin/orders`), Customers (`/admin/customers`), Suppliers (`/admin/suppliers`), Trucks / Drivers (`/admin/trucks`), Quotations (`/admin/quotations`), Payments (`/admin/payments`), Reports (`/admin/reports`), Settings (`/admin/settings`).
    - Role-based permissions differentiating standard `ADMIN` from `SUPER_ADMIN`.
 
+> **Note on Early Groundwork:**  
+> During Phase 0 setup, initial page shells and the quote submission endpoint (`POST /api/v1/orders/quote-request`) were scaffolded early to establish layout contracts and validation conventions. These represent **early Phase 1 groundwork** rather than finished customer features. Full interactive operational workflows belong to Phase 1.
+
 ---
 
-## 5. Performance & Mobile Foundations
+## 5. Database Strategy & Future Scaling
 
-- **Vite Bundling:** Code splitting and tree shaking resulting in compact CSS (~26kB gzip: ~5kB) and JavaScript bundles.
+- **Authoritative MVP Database:** Relational SQLite via Node.js built-in `node:sqlite`. SQLite provides zero-dependency deployment, high read/write throughput in WAL mode, and complete transactional integrity for the MVP volume.
+- **PostgreSQL Portability Qualification:** While the SQL schema follows standard ANSI relational conventions, migration to PostgreSQL in a later scaling phase is a planned architectural evolution requiring explicit dialect, sequence, constraint, concurrency, and connection-pooling adaptation rather than an automatic drop-in assumption.
+
+---
+
+## 6. Performance & Mobile Foundations
+
+- **Vite Bundling:** Code splitting and tree shaking resulting in compact CSS and JavaScript bundles.
 - **Client-Side Routing:** Instant page transitions via `react-router-dom` with zero full-page reloads.
-- **Database Indexing:** Indexed lookups for orders by status, mobile numbers, product slugs, and creation timestamps.
-- **Lightweight Dependencies:** Zero native C++ compilation dependencies, ensuring portability across cloud and on-premise environments.
-
----
-
-## 6. SEO & Accessibility Foundations
-
-- **Semantic HTML5:** Full use of semantic tags (`<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`, `<aside>`).
-- **Accessible Forms:** All inputs feature explicit `<label>`, `id`, `aria-invalid`, and descriptive error associations.
-- **Search Engine Metadata:** Clean canonical URLs, meta descriptions, and OpenGraph-ready titles targeted at Nagpur construction queries.
+- **Database Indexing:** Indexed lookups for orders by status, customer, truck, driver, mobile numbers, product slugs, and creation timestamps.
+- **Zero Native Dependencies:** Pure JavaScript / built-in Node modules ensure cross-platform portability.

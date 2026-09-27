@@ -197,4 +197,55 @@ describe('Phase 0 Foundation & Architecture Tests', () => {
       expect(names).toContain('Murum');
     });
   });
+
+  // 10. Decoupled Driver & Truck Entity Foundation
+  describe('Decoupled Driver & Truck Foundation', () => {
+    it('10: Decoupled Driver and Truck entities can be registered independently', async () => {
+      const { DriverRepository } = await import('../src/repositories/driverRepository.js');
+      const { TruckRepository } = await import('../src/repositories/truckRepository.js');
+      const driverRepo = new DriverRepository();
+      const truckRepo = new TruckRepository();
+
+      const now = new Date().toISOString();
+      const driverId = 'drv_test_01';
+      driverRepo.create({
+        id: driverId,
+        full_name: 'Ramesh Patil',
+        mobile_number: '9876543210',
+        license_number: 'MH-31-2015-001234',
+        verification_status: 'VERIFIED',
+        availability_status: 'Available',
+        notes: 'Experienced tipper driver',
+        is_active: 1,
+        created_at: now,
+        updated_at: now,
+      });
+
+      const truckId = 'trk_test_01';
+      truckRepo.create({
+        id: truckId,
+        registration_number: 'MH-31-AP-9999',
+        capacity_tons: 16,
+        supported_materials: JSON.stringify(['Sand', 'Black Stone / Aggregate']),
+        owner_name: 'Nagpur Transport Co.',
+        owner_mobile: '9822001122',
+        default_driver_id: driverId,
+        availability_status: 'Available',
+        indicative_transport_rate: 1800,
+        verification_status: 'VERIFIED',
+        notes: '16-ton tipper vehicle',
+        is_active: 1,
+        created_at: now,
+        updated_at: now,
+      });
+
+      const retrievedDriver = driverRepo.findById(driverId);
+      const retrievedTruck = truckRepo.findById(truckId);
+
+      expect(retrievedDriver).toBeDefined();
+      expect(retrievedDriver?.full_name).toBe('Ramesh Patil');
+      expect(retrievedTruck).toBeDefined();
+      expect(retrievedTruck?.default_driver_id).toBe(driverId);
+    });
+  });
 });

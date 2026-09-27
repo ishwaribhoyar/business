@@ -1,8 +1,8 @@
 # Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 
-[![Phase 0 Tests](https://img.shields.io/badge/Phase%200%20Tests-12%2F12%20Passing-emerald)](backend/tests/foundation.test.ts)
+[![Phase 0 Tests](https://img.shields.io/badge/Phase%200%20Tests-13%2F13%20Passing-emerald)](backend/tests/foundation.test.ts)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture.md)
-[![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](docs/product-scope.md)
+[![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](PRODUCT_SCOPE.md)
 
 ---
 
@@ -35,7 +35,7 @@ All developers and AI coding agents must read [PRODUCT_SCOPE.md](PRODUCT_SCOPE.m
 ## 3. Technology Stack
 
 - **Backend:** Node.js (v24 / v22), TypeScript, Express.js REST API (`/api/v1/`), Zod validation, Bcrypt, JWT, Helmet, CORS.
-- **Database:** Relational SQLite via Node.js built-in `node:sqlite` (zero native C++ build requirements, lightning fast, WAL mode enabled, full foreign key constraints). Easily portable to PostgreSQL in production.
+- **Database:** Relational SQLite via Node.js built-in `node:sqlite` (zero native C++ build requirements, fast, WAL mode enabled, full foreign key constraints). SQLite is the active, verified MVP engine; migration to PostgreSQL is an architectural option for future high-scale production deployment and will require explicit syntax and migration adaptations.
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, React Router DOM (v6).
 - **Testing:** Vitest + Supertest automated testing framework.
 
@@ -127,7 +127,7 @@ npm run seed
 ```bash
 npm test
 ```
-*Executes all 12 Phase 0 foundation tests verifying health, database readiness, auth, role authorization, validation, and error formats.*
+*Executes all 13 Phase 0 foundation tests verifying health, database readiness, auth, role authorization, validation, decoupled driver modeling, and error formats.*
 
 ### 6. Start Development Servers
 ```bash
@@ -144,21 +144,27 @@ npm run dev:frontend
 
 ---
 
-## 6. Phase 0 Acceptance Status
+## 6. Implementation Status & Acceptance
 
-All 29 Phase 0 acceptance criteria have been fully verified:
+### Status Overview
+- **Phase 0 Foundation:** ✅ **COMPLETE (with Phase 0.1 Architectural Corrections)**
+- **Phase 1 Groundwork:** 🟡 **PARTIALLY IMPLEMENTED EARLY** (Customer public route skeletons and initial quote submission endpoint established as foundation groundwork; full business logic, quote calculation engine, payment processing, and WhatsApp delivery dispatch are strictly reserved for Phase 1)
+- **Full MVP:** ⏳ **NOT COMPLETE** (Awaiting Phase 1 through Phase 4 prompts)
+
+### Foundation Criteria Verification
 - [x] Repository inspected before modification and baseline assessed
 - [x] Frontend foundation and design system established
 - [x] Customer routes (Home, Products, Detail, Get Quote, How It Works, About, Contact, Privacy, Terms) architected
 - [x] Admin routes (Login, Dashboard, Orders, Customers, Suppliers, Trucks, Quotations, Payments, Reports, Settings) architected
 - [x] Backend layered architecture (Routes -> Controllers -> Services -> Repositories -> Database) established
-- [x] Relational database schema with 12 core tables created
-- [x] Migration and seed system implemented and tested
+- [x] Relational database schema with 13 core tables created (including decoupled `drivers` table)
+- [x] Migration and seed system implemented and verified
 - [x] Bcrypt password hashing and JWT role-based authorization (`ADMIN`, `SUPER_ADMIN`) verified
 - [x] Centralized error handling and Zod request validation active
 - [x] Structured JSON logging with automatic PII and password redaction
 - [x] Health (`/health`) and readiness (`/health/readiness`) endpoints working
-- [x] Automated testing suite with 100% passing tests (12/12)
+- [x] Automated testing suite with 100% passing tests (13/13)
+- [x] Decoupled driver and truck modeling implemented and verified
 - [x] Comprehensive documentation (Architecture, Database, API, Auth, Deployment, Security, Backup, Traceability)
 - [x] Architectural guardrails enforced (`PRODUCT_SCOPE.md`)
 - [x] Zero Phase 2 features prematurely implemented

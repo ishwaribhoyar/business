@@ -21,9 +21,9 @@ export class OrderRepository {
       INSERT INTO orders (
         id, order_reference, customer_id, product_id, quantity, unit,
         delivery_address, area_pincode, preferred_delivery_date, additional_notes,
-        status, cancellation_reason, supplier_id, truck_id, qr_campaign_id,
+        status, cancellation_reason, supplier_id, truck_id, driver_id, qr_campaign_id,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -41,6 +41,7 @@ export class OrderRepository {
       order.cancellation_reason ?? null,
       order.supplier_id ?? null,
       order.truck_id ?? null,
+      order.driver_id ?? null,
       order.qr_campaign_id ?? null,
       order.created_at,
       order.updated_at

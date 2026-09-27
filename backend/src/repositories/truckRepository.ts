@@ -13,10 +13,10 @@ export class TruckRepository {
     const stmt = this.db.prepare(`
       INSERT INTO trucks (
         id, registration_number, capacity_tons, supported_materials,
-        owner_name, owner_mobile, driver_name, driver_mobile,
+        owner_name, owner_mobile, default_driver_id,
         availability_status, indicative_transport_rate, verification_status,
         notes, is_active, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -26,8 +26,7 @@ export class TruckRepository {
       truck.supported_materials,
       truck.owner_name,
       truck.owner_mobile,
-      truck.driver_name,
-      truck.driver_mobile,
+      truck.default_driver_id ?? null,
       truck.availability_status,
       truck.indicative_transport_rate ?? null,
       truck.verification_status,

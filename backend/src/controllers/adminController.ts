@@ -4,11 +4,13 @@ import { OrderRepository } from '../repositories/orderRepository.js';
 import { ProductRepository } from '../repositories/productRepository.js';
 import { SupplierRepository } from '../repositories/supplierRepository.js';
 import { TruckRepository } from '../repositories/truckRepository.js';
+import { DriverRepository } from '../repositories/driverRepository.js';
 
 const orderRepo = new OrderRepository();
 const productRepo = new ProductRepository();
 const supplierRepo = new SupplierRepository();
 const truckRepo = new TruckRepository();
+const driverRepo = new DriverRepository();
 
 export class AdminController {
   static getDashboardSummary(_req: Request, res: Response, next: NextFunction): void {
@@ -17,6 +19,7 @@ export class AdminController {
       const products = productRepo.findAllActive();
       const suppliers = supplierRepo.findAll();
       const trucks = truckRepo.findAll();
+      const drivers = driverRepo.findAll();
 
       const ordersByStatus = ordersResult.orders.reduce<Record<string, number>>((acc, order) => {
         acc[order.status] = (acc[order.status] || 0) + 1;
@@ -31,6 +34,7 @@ export class AdminController {
         activeProductsCount: products.length,
         registeredSuppliersCount: suppliers.length,
         registeredTrucksCount: trucks.length,
+        registeredDriversCount: drivers.length,
         ordersByStatus,
       };
 

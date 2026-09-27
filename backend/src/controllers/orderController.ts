@@ -69,6 +69,7 @@ export class OrderController {
         cancellation_reason: null,
         supplier_id: null,
         truck_id: null,
+        driver_id: null,
         qr_campaign_id: payload.qr_campaign_code || null,
         created_at: now,
         updated_at: now,
