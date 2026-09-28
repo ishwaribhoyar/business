@@ -13,9 +13,11 @@ import {
   MessageCircle,
   MapPin,
   CheckCircle2,
-  QrCode,
   Building2,
   HardHat,
+  Phone,
+  Layers,
+  ChevronRight,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
@@ -35,7 +37,6 @@ export const HomePage: React.FC = () => {
         }
       })
       .catch(() => {
-        // Fallback to APP_CONFIG
         setProducts(
           APP_CONFIG.mvpMaterials.map((m) => ({
             id: m.id,
@@ -54,73 +55,142 @@ export const HomePage: React.FC = () => {
   const displayProducts = products.length > 0 ? products : (APP_CONFIG.mvpMaterials as unknown as Product[]);
 
   return (
-    <div className="space-y-16 sm:space-y-20 py-6 sm:py-10">
-      {/* 1. Hero Section */}
+    <div className="space-y-16 sm:space-y-24 py-4 sm:py-8">
+      {/* 1. HERO SECTION - 100% Light Theme, High-Contrast & Professional */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-6 sm:p-12 lg:p-16 border border-slate-700 shadow-xl relative overflow-hidden">
-          <div className="relative z-10 max-w-2xl space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold">
-              <MapPin className="h-3.5 w-3.5" />
-              <span>Serving {APP_CONFIG.serviceArea}</span>
+        <div className="bg-gradient-to-br from-amber-50/70 via-white to-slate-50/80 rounded-3xl border border-slate-200/90 p-6 sm:p-10 lg:p-14 shadow-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            {/* Left Column: Core Value & Calls to Action */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold tracking-wide">
+                <MapPin className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                <span>Nagpur & Nearby Serviceable Areas • Direct Tipper Dispatch</span>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
+                Bulk Construction Materials Delivered Directly to Your Construction Site.
+              </h1>
+
+              <p className="text-slate-700 text-sm sm:text-base leading-relaxed">
+                Order Sand, Bricks, Black Stone Aggregate, and Murum with guaranteed, transparent delivered pricing. Sourced from verified regional quarries and delivered straight to your site by dedicated partner trucks.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-2">
+                <Link
+                  to="/get-quote"
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-7 py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm"
+                >
+                  <span>Request Delivered Quote</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <a
+                  href={`https://wa.me/${APP_CONFIG.whatsappNumber.replace(/\D/g, '')}?text=Hello%20Nagpur%20Materials,%20I%20need%20a%20delivered%20quotation%20for%20construction%20materials.`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>WhatsApp Operations</span>
+                </a>
+              </div>
+
+              {/* Trust Checkpoints */}
+              <div className="pt-4 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-700 font-medium">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Quotation-First Pricing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Verified Quarry Sourcing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Dedicated Truck Dispatch</span>
+                </div>
+              </div>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
-              Bulk Construction Materials Delivered Directly to Your Site.
-            </h1>
+            {/* Right Column: Direct Material Quick-Selector Card */}
+            <div className="lg:col-span-5">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-7 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                      Select Material For Quote
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Fixed delivered rates calculated for your site
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                    4 MVP Materials
+                  </span>
+                </div>
 
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              Order Sand, Bricks, Black Stone Aggregate, and Murum with transparent delivered pricing. No hidden transport surprises. Verified local suppliers and dedicated truck coordination across Nagpur.
-            </p>
+                {/* Quick Material Tiles */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  {displayProducts.map((mat) => (
+                    <Link
+                      key={mat.id}
+                      to={`/get-quote?material=${mat.id}`}
+                      className="group p-3.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-200 hover:border-amber-400 rounded-xl transition-all flex flex-col justify-between text-left"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                            {mat.unit}
+                          </span>
+                          <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-amber-600 transition" />
+                        </div>
+                        <h4 className="font-bold text-slate-900 text-xs sm:text-sm mt-1.5 group-hover:text-amber-800">
+                          {mat.name}
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-semibold text-amber-600 mt-3 block">
+                        Get Quote →
+                      </span>
+                    </Link>
+                  ))}
+                </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-2">
-              <Link
-                to="/get-quote"
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-6 py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
-              >
-                <span>Request Delivered Quote</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <a
-                href={`https://wa.me/${APP_CONFIG.whatsappNumber.replace(/\D/g, '')}?text=Hello%20Nagpur%20Materials,%20I%20need%20a%20delivered%20quotation%20for%20construction%20materials.`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span>WhatsApp Operations</span>
-              </a>
-            </div>
+                <div className="pt-2 text-center">
+                  <Link
+                    to="/get-quote"
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    <span>Enter Site Location & Get Full Quote</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
 
-            {/* Quick stats/principles */}
-            <div className="pt-4 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs text-slate-400">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />
-                <span>Quotation-First Pricing</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />
-                <span>Verified Supplier Network</span>
-              </div>
-              <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
-                <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />
-                <span>Coordinated Transport</span>
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Questions? Call our desk:</span>
+                  <a
+                    href={`tel:${APP_CONFIG.phone}`}
+                    className="font-bold text-slate-800 hover:text-amber-600 flex items-center gap-1"
+                  >
+                    <Phone className="h-3 w-3 text-amber-600" />
+                    <span>{APP_CONFIG.phone}</span>
+                  </a>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Core MVP Materials Section */}
+      {/* 2. CORE MVP MATERIALS SECTION */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-10">
-          <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider border border-amber-200">
-            Initial MVP Materials
+          <span className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider border border-amber-200">
+            Initial 4 MVP Materials
           </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-3">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-3">
             Core Building Materials in Nagpur
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-2">
-            Direct quarry and kiln partnerships with managed delivery to residential and commercial construction sites.
+            Direct quarry and kiln partnerships with managed tipper delivery to residential, commercial, and infrastructure sites.
           </p>
         </div>
 
@@ -132,10 +202,10 @@ export const HomePage: React.FC = () => {
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md uppercase tracking-wider border border-amber-200">
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-md uppercase tracking-wider border border-amber-200">
                     {mat.unit}
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-slate-500 font-medium">
                     Min: {mat.min_quantity || 1} {mat.unit}
                   </span>
                 </div>
@@ -146,7 +216,7 @@ export const HomePage: React.FC = () => {
 
                 {mat.typical_use_cases && (
                   <p className="text-[11px] text-slate-500 mt-3 pt-3 border-t border-slate-100">
-                    <strong>Uses:</strong> {mat.typical_use_cases}
+                    <strong className="text-slate-700">Uses:</strong> {mat.typical_use_cases}
                   </p>
                 )}
               </div>
@@ -160,10 +230,10 @@ export const HomePage: React.FC = () => {
                 </Link>
                 <Link
                   to={`/get-quote?material=${mat.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200 transition"
                 >
                   <span>Get Quote</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
             </div>
@@ -171,16 +241,18 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. How It Works (5-Step Workflow) */}
+      {/* 3. HOW IT WORKS (5-STEP WORKFLOW) - Light & Clean */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-slate-100/80 rounded-3xl p-6 sm:p-12 border border-slate-200">
+        <div className="bg-slate-50 rounded-3xl p-6 sm:p-12 border border-slate-200">
           <div className="text-center max-w-2xl mx-auto mb-10">
-            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider border border-amber-200">
+            <span className="text-xs font-bold text-amber-800 bg-amber-100/70 px-3 py-1 rounded-full uppercase tracking-wider border border-amber-300">
               Quotation-First Workflow
             </span>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-3">How Delivery Works</h2>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-3">
+              How Material Delivery Works
+            </h2>
             <p className="text-xs sm:text-sm text-slate-600 mt-2">
-              A transparent, 5-step process designed for contractors, builders, and site supervisors.
+              A transparent, 5-step process designed for contractors, builders, and individual home builders.
             </p>
           </div>
 
@@ -189,8 +261,8 @@ export const HomePage: React.FC = () => {
               <div>
                 <div className="w-8 h-8 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs mb-3">1</div>
                 <h4 className="font-bold text-sm text-slate-900 mb-1">Select Material</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Choose from Sand, Bricks, Black Stone Aggregate, or Murum with desired quantity.
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Choose Sand, Bricks, Black Stone Aggregate, or Murum with your desired quantity.
                 </p>
               </div>
             </div>
@@ -198,9 +270,9 @@ export const HomePage: React.FC = () => {
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="w-8 h-8 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs mb-3">2</div>
-                <h4 className="font-bold text-sm text-slate-900 mb-1">Provide Site Location</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Specify your Nagpur site address, pincode, and preferred delivery date.
+                <h4 className="font-bold text-sm text-slate-900 mb-1">Share Site Location</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Provide your construction site address, pincode, and preferred delivery date.
                 </p>
               </div>
             </div>
@@ -208,9 +280,9 @@ export const HomePage: React.FC = () => {
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="w-8 h-8 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs mb-3">3</div>
-                <h4 className="font-bold text-sm text-slate-900 mb-1">Receive Delivered Quote</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Our operations team calculates exact transport haulage and communicates a fixed price.
+                <h4 className="font-bold text-sm text-slate-900 mb-1">Get Delivered Quote</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Our operations team calculates exact transport haulage and communicates a fixed delivered price.
                 </p>
               </div>
             </div>
@@ -219,8 +291,8 @@ export const HomePage: React.FC = () => {
               <div>
                 <div className="w-8 h-8 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs mb-3">4</div>
                 <h4 className="font-bold text-sm text-slate-900 mb-1">Confirm & Dispatch</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Confirm via WhatsApp or phone. We assign the verified supplier and dedicated truck.
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Confirm via WhatsApp or phone. We assign the verified quarry supplier and dedicated truck.
                 </p>
               </div>
             </div>
@@ -229,7 +301,7 @@ export const HomePage: React.FC = () => {
               <div>
                 <div className="w-8 h-8 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs mb-3">5</div>
                 <h4 className="font-bold text-sm text-slate-900 mb-1">Site Delivery</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Truck arrives at your site. Material is inspected and unloaded under supervisor direction.
                 </p>
               </div>
@@ -238,35 +310,35 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. Trust & Core Value Principles */}
+      {/* 4. TRUST & OPERATIONAL ADVANTAGES */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex gap-4">
-            <div className="bg-amber-100 text-amber-700 p-3 rounded-2xl h-fit shrink-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex gap-4">
+            <div className="bg-amber-100 text-amber-800 p-3 rounded-xl h-fit shrink-0">
               <Calculator className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-900 mb-1.5">Transparent Delivered Pricing</h3>
+              <h3 className="font-bold text-base text-slate-900 mb-1.5">Guaranteed Delivered Price</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                No surprises on arrival. Every quotation includes material sourcing and transport calculated specifically for your construction site pincode in Nagpur.
+                No surprises on arrival. Every quotation includes material sourcing and transport calculated specifically for your construction site in Nagpur.
               </p>
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <div className="bg-amber-100 text-amber-700 p-3 rounded-2xl h-fit shrink-0">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex gap-4">
+            <div className="bg-amber-100 text-amber-800 p-3 rounded-xl h-fit shrink-0">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-900 mb-1.5">Verified Supplier Network</h3>
+              <h3 className="font-bold text-base text-slate-900 mb-1.5">Verified Quarry Network</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 We coordinate materials through verified local suppliers and third-party truck partners serving Nagpur and currently serviceable nearby areas.
               </p>
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <div className="bg-amber-100 text-amber-700 p-3 rounded-2xl h-fit shrink-0">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex gap-4">
+            <div className="bg-amber-100 text-amber-800 p-3 rounded-xl h-fit shrink-0">
               <Clock className="h-6 w-6" />
             </div>
             <div>
@@ -279,16 +351,16 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. Partner Truck Fleet Branding (PRD Section 5) */}
+      {/* 5. PARTNER TRUCK FLEET (Light Theme Industrial Design) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent rounded-3xl p-6 sm:p-10 border border-amber-200 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="bg-amber-50/70 rounded-3xl p-6 sm:p-10 border border-amber-200 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-3 max-w-xl">
-            <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full uppercase tracking-wider">
-              <Truck className="h-3.5 w-3.5" />
+            <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-900 bg-amber-100 px-3 py-1 rounded-full uppercase tracking-wider border border-amber-300">
+              <Truck className="h-3.5 w-3.5 text-amber-800" />
               <span>Partner Delivery Network</span>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-              Dedicated Delivery Network
+              Asset-Light Delivery Fleet Coordination
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
               We coordinate deliveries through verified third-party trucks. Partner trucks may display platform branding panels and QR codes for convenient on-site quote requests.
@@ -298,14 +370,14 @@ export const HomePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
             <Link
               to="/get-quote"
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-3 rounded-xl shadow-xs text-xs sm:text-sm flex items-center gap-2"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-3 rounded-xl shadow-xs text-xs sm:text-sm flex items-center gap-2 transition"
             >
               <span>Get Delivered Quote</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/how-it-works"
-              className="border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold px-5 py-3 rounded-xl text-xs sm:text-sm"
+              className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold px-5 py-3 rounded-xl text-xs sm:text-sm transition"
             >
               How It Works
             </Link>
@@ -313,11 +385,11 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 6. Service Area (PRD Section 5 verbatim) */}
+      {/* 6. SERVICE AREA (PRD Section 5) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-xs text-center space-y-3">
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full uppercase tracking-wider">
-            <MapPin className="h-3.5 w-3.5" />
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-900 bg-amber-100 px-3 py-1 rounded-full uppercase tracking-wider border border-amber-300">
+            <MapPin className="h-3.5 w-3.5 text-amber-800" />
             <span>Service Area</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
