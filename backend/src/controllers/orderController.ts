@@ -42,8 +42,14 @@ const paymentService = new PaymentService(paymentRepo, orderRepo, quotationRepo,
 
 function generateOrderReference(): string {
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-  const randomStr = Math.floor(1000 + Math.random() * 9000).toString();
-  return `NGP-${dateStr}-${randomStr}`;
+  let ref = '';
+  let attempts = 0;
+  do {
+    const randomStr = Math.floor(1000 + Math.random() * 9000).toString();
+    ref = `NGP-${dateStr}-${randomStr}`;
+    attempts++;
+  } while (orderRepo.findByReference(ref) && attempts < 100);
+  return ref;
 }
 
 export class OrderController {
