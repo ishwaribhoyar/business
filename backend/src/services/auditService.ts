@@ -34,6 +34,10 @@ export class AuditService {
     Logger.info(`Audit logged: ${params.action} on ${params.entityType}:${params.entityId} by ${params.userId ?? 'SYSTEM'}`);
   }
 
+  log(params: AuditActionParams): void {
+    this.recordAction(params);
+  }
+
   getAuditTrail(entityType: string, entityId: string): AuditLog[] {
     return this.auditRepo.findByEntity(entityType, entityId);
   }

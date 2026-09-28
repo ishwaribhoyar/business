@@ -183,3 +183,15 @@ export const truckCreateSchema = z.object({
 export const truckUpdateSchema = truckCreateSchema.partial().extend({
   is_active: z.number().int().min(0).max(1).optional(),
 });
+
+export const adminUserCreateSchema = z.object({
+  email: z.string().email('Please provide a valid email address').toLowerCase().trim(),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  full_name: z.string().min(2, 'Full name must be at least 2 characters').trim(),
+  role: z.enum(['ADMIN', 'SUPER_ADMIN']).default('ADMIN'),
+});
+
+export const adminUserStatusSchema = z.object({
+  is_active: z.union([z.boolean(), z.number().min(0).max(1)]).transform((val) => (typeof val === 'boolean' ? (val ? 1 : 0) : val)),
+});
+

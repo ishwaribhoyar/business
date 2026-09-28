@@ -21,9 +21,19 @@ export class AdminUserRepository {
     return (result as unknown as AdminUser) || null;
   }
 
+  findAll(): AdminUser[] {
+    const stmt = this.db.prepare('SELECT * FROM admin_users ORDER BY created_at DESC');
+    return (stmt.all() as unknown as AdminUser[]) || [];
+  }
+
   updateLastLogin(id: string, timestamp: string): void {
     const stmt = this.db.prepare('UPDATE admin_users SET last_login_at = ?, updated_at = ? WHERE id = ?');
     stmt.run(timestamp, timestamp, id);
+  }
+
+  updateStatus(id: string, isActive: number, updatedAt: string): void {
+    const stmt = this.db.prepare('UPDATE admin_users SET is_active = ?, updated_at = ? WHERE id = ?');
+    stmt.run(isActive, updatedAt, id);
   }
 
   create(user: AdminUser): void {

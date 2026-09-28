@@ -1,14 +1,15 @@
 # Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 
-[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-65%2F65%20Passing-emerald)](backend/tests/)
+[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-84%2F84%20Passing-emerald)](backend/tests/)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture.md)
+[![Database](https://img.shields.io/badge/Database-PostgreSQL%2016%20%7C%20Render-indigo)](docs/postgresql.md)
 [![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](PRODUCT_SCOPE.md)
 
 ---
 
 ## 1. Product Identity & Authoritative Specifications
 
-This repository contains the codebase and architectural foundation for the **Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP**.
+This repository contains the codebase and production architecture for the **Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP**.
 
 The implementation is strictly governed by two authoritative source documents:
 1. `Building_Material_Marketplace_PRD.docx` (Product Requirements Document)
@@ -30,15 +31,18 @@ All developers and AI coding agents must read [PRODUCT_SCOPE.md](PRODUCT_SCOPE.m
   - **Historical Order Snapshots:** Frozen category name, variant name, and specifications preserved on orders so catalog modifications never alter past order records.
 - **Quotation-First Pricing:** No automated or algorithmic market pricing in MVP. Indicative rates displayed in the catalog are purely non-binding baseline ex-quarry rates. Final delivered prices are calculated, confirmed, and communicated by the operations desk as frozen quotation snapshots.
 - **Human-Assisted Operations:** The MVP uses an internal Admin Operations portal. There are no separate supplier apps or driver apps in Version 1.
+- **Multi-User Operations & RBAC (Phase 4):** Multiple internal administrative users (`ADMIN` and `SUPER_ADMIN`) operate concurrently with isolated browser sessions, role authorization, and audit log actor attribution.
 
 ---
 
 ## 3. Technology Stack
 
-- **Backend:** Node.js (v24 / v22), TypeScript, Express.js REST API (`/api/v1/`), Zod validation, Bcrypt, JWT, Helmet, CORS.
-- **Database:** Relational SQLite via Node.js built-in `node:sqlite` (zero native C++ build requirements, fast, WAL mode enabled, full foreign key constraints). SQLite is the active, verified MVP engine; migration to PostgreSQL is an architectural option for future high-scale production deployment and will require explicit syntax and migration adaptations.
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, React Router DOM (v6).
-- **Testing:** Vitest + Supertest automated testing framework.
+- **Backend:** Node.js (v22 / v24), TypeScript, Express.js REST API (`/api/v1/`), Zod validation, Bcrypt, JWT, Helmet, CORS, Express-Rate-Limit.
+- **Database (Production):** PostgreSQL 16 (Render Managed Database) with connection pooling (`pg.Pool`), exact `NUMERIC(12,2)` monetary types, `TIMESTAMPTZ`, `JSONB`, `BOOLEAN`, strict foreign keys with `ON DELETE RESTRICT`, performance indexes, and transactional versioned migrations (`schema_migrations`).
+- **Database (Local Development / Isolated Tests):** SQLite with WAL mode via `node:sqlite`. Production strictly rejects SQLite and enforces PostgreSQL.
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, Lucide Icons, React Router DOM (v6).
+- **Deployment:** Render Cloud Platform via `render.yaml` Infrastructure-as-Code (Backend Web Service, Frontend Static Site, Managed PostgreSQL).
+- **Testing:** Vitest + Supertest automated testing framework (84/84 passing tests).
 
 ---
 
@@ -49,41 +53,47 @@ All developers and AI coding agents must read [PRODUCT_SCOPE.md](PRODUCT_SCOPE.m
 ├── Building_Material_Marketplace_PRD.docx   # Authoritative Product Requirements
 ├── PRODUCT_SCOPE.md                        # Architectural constraints and scope guardrails
 ├── README.md                               # Project documentation and runbook
+├── render.yaml                             # Render Infrastructure-as-Code blueprint
 ├── .env.example                            # Safe environment template
 ├── .gitignore                              # Git exclusion rules
 ├── package.json                            # Root workspace scripts
 ├── docs/                                   # Architectural & operational documentation
 │   ├── architecture.md                     # High-level architecture & layer boundaries
-│   ├── architecture-assessment.md          # Baseline inspection assessment
+│   ├── deployment.md                       # Render production deployment runbook
+│   ├── postgresql.md                       # PostgreSQL technical specification & schema
+│   ├── migration.md                        # SQLite -> PostgreSQL data migration guide
+│   ├── backup-recovery.md                  # PostgreSQL backup strategy and disaster recovery
+│   ├── phase-4-traceability.md             # Complete Phase 4 verification matrix
 │   ├── database.md                         # ER diagram and table specifications
 │   ├── api.md                              # REST API endpoints & response envelopes
 │   ├── authentication.md                   # Bcrypt, JWT, and role authorization
-│   ├── development.md                      # Developer environment guide
-│   ├── deployment.md                       # Production deployment runbook
-│   ├── security.md                         # Security measures & PII sanitization
-│   ├── backup-recovery.md                  # Hot backup strategy and DR runbook
-│   ├── product-scope.md                    # MVP scope & Phase 2 backlog
-│   └── phase-0-traceability.md             # Requirement traceability matrix
+│   └── security.md                         # Security measures & PII sanitization
 ├── backend/                                # Node.js + Express + TypeScript Backend
 │   ├── src/
-│   │   ├── config/                         # Environment loading & validation
-│   │   ├── controllers/                    # Route controllers
-│   │   ├── services/                       # Business logic, notifications & audit
+│   │   ├── config/                         # Environment loading, CORS & validation
+│   │   ├── controllers/                    # Route controllers (Admin, Order, Catalog, Health)
+│   │   ├── services/                       # Business logic, quotation, fulfillment, audit
 │   │   ├── repositories/                   # Data access layer (parameterized SQL)
 │   │   ├── models/                         # Domain models & entities
 │   │   ├── schemas/                        # Zod validation schemas
 │   │   ├── routes/                         # Express route definitions (/api/v1)
-│   │   ├── middlewares/                    # Auth, validation, logging, errors
+│   │   ├── middlewares/                    # Auth, RBAC, validation, rate-limiting, logging, errors
 │   │   ├── utils/                          # Logger, errors, response formatter
-│   │   ├── db/                             # Schema, connection, migrations, seeds
+│   │   ├── db/                             # PG pool, PG schema, PG migrations, SQLite fallback
+│   │   │   ├── migrations/pg/              # Versioned PostgreSQL migrations (001, 002)
+│   │   │   ├── pgPool.ts                   # PostgreSQL connection pool with transaction helper
+│   │   │   ├── pgSchema.sql                # Production PostgreSQL DDL schema
+│   │   │   ├── pgMigrate.ts                # PostgreSQL migration runner
+│   │   │   └── migrateSqliteToPg.ts        # SQLite -> PostgreSQL data migration script
+│   │   ├── scripts/                        # Admin bootstrapping CLI
 │   │   ├── app.ts                          # Express application setup
-│   │   └── server.ts                       # Server bootstrap & graceful shutdown
-│   ├── tests/                              # Automated foundation tests (Vitest)
+│   │   └── server.ts                       # Server bootstrap, PG check & graceful shutdown
+│   ├── tests/                              # Automated tests (84 passing tests)
 │   └── data/                               # Local SQLite database files
 └── frontend/                               # React + TypeScript + Vite + Tailwind Frontend
     └── src/
         ├── customer/                       # Public customer pages (Home, Products, Quote)
-        ├── admin/                          # Operations portal (Dashboard, Orders, etc.)
+        ├── admin/                          # Operations portal (Dashboard, Orders, Catalog, etc.)
         ├── components/                     # Reusable design system UI components
         ├── layouts/                        # CustomerLayout & AdminLayout
         ├── services/                       # API clients & auth services
@@ -105,10 +115,7 @@ All developers and AI coding agents must read [PRODUCT_SCOPE.md](PRODUCT_SCOPE.m
 
 ### 2. Environment Setup
 ```bash
-# Copy environment template
 cp .env.example .env
-# Windows PowerShell:
-# Copy-Item .env.example .env
 ```
 
 ### 3. Install Dependencies
@@ -117,20 +124,30 @@ npm --prefix backend install
 npm --prefix frontend install
 ```
 
-### 4. Database Setup (Migrations & Seed)
+### 4. Database Setup & Migrations
 ```bash
+# For local SQLite development:
 npm run migrate
 npm run seed
-```
-*Seeds initial Super Admin account (`admin@nagpurmaterials.local` / `AdminSecurePass123!`) and the 4 MVP materials.*
 
-### 5. Run Automated Tests
+# For PostgreSQL (Production / Staging):
+npm run migrate:pg
+npm run bootstrap:admin
+```
+
+### 5. Data Migration (SQLite to PostgreSQL)
+To migrate existing SQLite data into PostgreSQL with four-way integrity verification:
+```bash
+npm run migrate:data
+```
+
+### 6. Run Automated Tests
 ```bash
 npm test
 ```
-*Executes all 65 automated tests across Phase 0 Foundation (13 tests), Phase 1 Customer Marketplace (13 tests), Phase 2 Admin Operations (23 tests), and Phase 3 Hierarchical Catalog (16 tests). Tests cover the hierarchical Category → Subtype → Specification → Quote flow, dynamic specification schema validation, minimum quantity enforcement, order historical snapshot immutability, indicative price isolation from quotation engine, 10-stage delivery lifecycle + CANCELLED terminal state, strict dispatch invariants, negative transition paths, quotation snapshot versioning, partner registries, fulfillment dispatch, offline payments, and live dashboard metrics.*
+*Executes all 84 automated tests across Foundation (13 tests), Customer Marketplace (13 tests), Admin Operations (23 tests), Hierarchical Catalog (16 tests), and Phase 4 Production/PostgreSQL/RBAC (19 tests).*
 
-### 6. Start Development Servers
+### 7. Start Development Servers
 ```bash
 # Terminal 1: Backend API (Port 5000)
 npm run dev:backend
@@ -140,13 +157,12 @@ npm run dev:frontend
 ```
 - Customer Web App: `http://localhost:3000`
 - Category & Variant Catalog: `http://localhost:3000/products`
-- Subtypes by Category: `http://localhost:3000/products/:categorySlug`
 - Subtype Technical Detail: `http://localhost:3000/products/:categorySlug/:variantSlug`
-- Order / Get Quote: `http://localhost:3000/get-quote` (alias: `/order`)
+- Order / Get Quote: `http://localhost:3000/get-quote`
 - Admin Operations Portal: `http://localhost:3000/admin/login`
 - Admin Catalog Management: `http://localhost:3000/admin/catalog`
-- Backend API Health: `http://localhost:5000/health`
-- Backend API Root: `http://localhost:5000/api/v1`
+- Backend Liveness Probe: `http://localhost:5000/health`
+- Backend Readiness Probe: `http://localhost:5000/ready`
 
 ---
 
@@ -157,31 +173,15 @@ npm run dev:frontend
 - **Phase 1 Customer Marketplace & Quote Request:** ✅ **COMPLETE (with Phase 1.1 Factual Cleanup)**
 - **Phase 2 Admin Operations, Quotation Engine & Fulfillment:** ✅ **COMPLETE (with Phase 2.1 Operational Integrity Audit)**
 - **Phase 3 Hierarchical Material Catalog & Variants:** ✅ **COMPLETE**
-  - Hierarchical catalog architecture: `CATEGORY → SUBTYPE / VARIANT → SPECIFICATION → QUANTITY → QUOTE REQUEST`
-  - 4 Core MVP Categories: Sand, Bricks, Black Stone / Aggregate, Murum
-  - 11 Regional Civil Subtypes seeded with engineering-standard specification schemas
-  - Dynamic specification rendering on customer quote request forms
-  - Historical snapshots preserved on `orders` (`category_name_snapshot`, `variant_name_snapshot`, `specifications_snapshot`)
-  - Indicative price isolation: catalog prices are strictly indicative benchmarks; delivered prices remain calculated via Phase 2 manual quotation engine
-  - Backwards-compatible quote request handling for legacy flat material IDs
-  - Admin catalog management portal (`/admin/catalog`) for managing categories, variants, indicative rates, min quantities, and dynamic specification schemas
-  - Order management queues (`/admin/orders`, `/admin/orders/:id`) display variant snapshots, category tags, and specification breakdowns with category filtering
-  - Clean production builds (`npm run build:backend` and `npm run build:frontend`) and 65/65 passing automated tests
-- **Full MVP:** 🟢 **CORE DELIVERABLE COMPLETE & VERIFIED**
-
-### Phase 3 Verification Checklist
-- [x] 4 initial categories (`Sand`, `Bricks`, `Black Stone / Aggregate`, `Murum`) seeded and active
-- [x] 11 regional civil subtypes seeded with dynamic specification schemas and standard billing units
-- [x] Specification validation schema enforces required fields and allowed options
-- [x] Real-time minimum order quantity and billing unit validation enforced
-- [x] Orders store immutable historical snapshots (`category_name_snapshot`, `variant_name_snapshot`, `specifications_snapshot`)
-- [x] Catalog price updates or subtype changes never alter existing historical order records
-- [x] Indicative rates clearly disclaimed; Phase 2 manual quotation calculation ($Delivered = Material + Transport + Platform Fee - Discount$) preserved
-- [x] Rich WhatsApp prefill URLs include reference, variant name, category, and key-value technical specifications
-- [x] Customer browsing hierarchy implemented: `/products` → `/products/:categorySlug` → `/products/:categorySlug/:variantSlug` → `/get-quote`
-- [x] Admin catalog management page (`/admin/catalog`) allows viewing, toggling active states, editing indicative rates, and updating schemas
-- [x] Collision-resistant order reference generation prevents database unique constraint conflicts
-- [x] 65/65 automated tests passing across all test suites
-- [x] Zero regressions on Phase 0, Phase 1, or Phase 2 functionality
-- [x] Out-of-scope boundaries strictly respected (no online payment gateways, no customer accounts, no driver apps, no live GPS tracking, no automated dynamic pricing)
-
+- **Phase 4 PostgreSQL Migration, Multi-User RBAC & Render Deployment:** ✅ **COMPLETE**
+  - PostgreSQL 16 primary production database with connection pooling (`pg.Pool`)
+  - Strict production enforcement: server crashes fast on startup if SQLite is configured in production
+  - Exact `NUMERIC(12,2)` representation for all financial fields (no floating-point money)
+  - Versioned PostgreSQL migrations tracked in `schema_migrations`
+  - Automated SQLite $\to$ PostgreSQL data migration tool with 4-way verification
+  - Multi-user administrative operations with independent JWT sessions and RBAC (`ADMIN` vs `SUPER_ADMIN`)
+  - Server-side role authorization and administrative user management (`/api/v1/admin/users`)
+  - Production security hardening: CORS origin restrictions, rate limiting, Helmet, sanitized errors
+  - Render Infrastructure-as-Code blueprint (`render.yaml`) with health (`/health`) and readiness (`/ready`) probes
+  - 84/84 automated tests passing across 5 suites; clean backend and frontend production builds
+- **Full Production MVP:** 🟢 **READY FOR RENDER DEPLOYMENT**

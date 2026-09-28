@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ResponseFormatter } from '../utils/response.js';
-import { getDatabase } from '../db/connection.js';
+import { getDatabase, isPostgresConfigured } from '../db/connection.js';
+import { getPgPool } from '../db/pgPool.js';
 
 export class HealthController {
   static getHealth(_req: Request, res: Response): void {
@@ -12,22 +13,36 @@ export class HealthController {
     });
   }
 
-  static getReadiness(_req: Request, res: Response): void {
+  static async getReadiness(_req: Request, res: Response): Promise<void> {
     try {
-      const db = getDatabase();
-      // Test basic database readiness query
-      const stmt = db.prepare('SELECT 1 as ready');
-      const result = stmt.get() as { ready: number };
-
-      if (result && result.ready === 1) {
-        ResponseFormatter.success(res, {
-          status: 'READY',
-          database: 'CONNECTED',
-          timestamp: new Date().toISOString(),
-        });
+      if (isPostgresConfigured()) {
+        const pool = getPgPool();
+        const result = await pool.query('SELECT 1 as ready');
+        if (result && result.rows.length > 0 && (Number(result.rows[0].ready) === 1)) {
+          ResponseFormatter.success(res, {
+            status: 'READY',
+            database: 'CONNECTED',
+            engine: 'POSTGRESQL',
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
       } else {
-        ResponseFormatter.error(res, 'Database query failed', 503, 'SERVICE_UNAVAILABLE');
+        const db = getDatabase();
+        const stmt = db.prepare('SELECT 1 as ready');
+        const result = stmt.get() as { ready: number };
+
+        if (result && result.ready === 1) {
+          ResponseFormatter.success(res, {
+            status: 'READY',
+            database: 'CONNECTED',
+            engine: 'SQLITE',
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
       }
+      ResponseFormatter.error(res, 'Database query failed', 503, 'SERVICE_UNAVAILABLE');
     } catch (error) {
       ResponseFormatter.error(res, 'Database connectivity error', 503, 'SERVICE_UNAVAILABLE', {
         error: error instanceof Error ? error.message : 'Unknown DB error',

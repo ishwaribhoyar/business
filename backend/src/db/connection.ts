@@ -3,8 +3,31 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config/index.js';
 import { Logger } from '../utils/logger.js';
+import { closePgPool } from './pgPool.js';
 
 let dbInstance: DatabaseSync | null = null;
+
+/**
+ * Validates that production mode strictly requires PostgreSQL
+ */
+export function validateDatabaseEnvironment(): void {
+  const isPostgres = isPostgresConfigured();
+  if (config.isProduction && !isPostgres) {
+    const errorMsg =
+      'FATAL: Production database must be PostgreSQL. SQLite is strictly prohibited in production. ' +
+      'Missing or invalid DATABASE_URL (must start with postgres:// or postgresql://).';
+    Logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+}
+
+/**
+ * Returns true if the configured DATABASE_URL is a PostgreSQL connection string
+ */
+export function isPostgresConfigured(): boolean {
+  const url = config.databaseUrl || '';
+  return url.startsWith('postgres://') || url.startsWith('postgresql://');
+}
 
 export function getDatabasePath(): string {
   if (config.isTest) {
@@ -25,6 +48,8 @@ export function getDatabasePath(): string {
 }
 
 export function getDatabase(dbPath?: string): DatabaseSync {
+  validateDatabaseEnvironment();
+
   if (dbInstance) {
     return dbInstance;
   }
@@ -47,8 +72,14 @@ export function getDatabase(dbPath?: string): DatabaseSync {
 
 export function closeDatabase(): void {
   if (dbInstance) {
-    dbInstance.close();
+    try {
+      dbInstance.close();
+    } catch (e) {
+      Logger.warn('Error closing SQLite database', { error: e });
+    }
     dbInstance = null;
     Logger.info('SQLite database connection closed.');
   }
+  // Also close PostgreSQL pool if open
+  closePgPool().catch(() => {});
 }

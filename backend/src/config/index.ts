@@ -9,8 +9,9 @@ dotenv.config(); // fallback to current working directory .env
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.string().transform((val) => parseInt(val, 10)).default('5000'),
-  HOST: z.string().default('localhost'),
+  HOST: z.string().default(process.env.NODE_ENV === 'production' ? '0.0.0.0' : (process.env.HOST || '0.0.0.0')),
   CLIENT_URL: z.string().default('http://localhost:3000'),
+  CORS_ORIGINS: z.string().optional(),
   DATABASE_URL: z.string().default('file:./data/marketplace.sqlite'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters for security').default('development_only_secret_change_me_in_production_min_32_chars_long'),
   JWT_EXPIRES_IN: z.string().default('7d'),
@@ -43,6 +44,9 @@ export const config = {
   port: parsed.data.PORT,
   host: parsed.data.HOST,
   clientUrl: parsed.data.CLIENT_URL,
+  corsOrigins: parsed.data.CORS_ORIGINS
+    ? parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim())
+    : [parsed.data.CLIENT_URL, 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'],
   databaseUrl: parsed.data.DATABASE_URL,
   jwt: {
     secret: parsed.data.JWT_SECRET,

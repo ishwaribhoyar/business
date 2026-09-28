@@ -1,0 +1,83 @@
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Backend API Web Service (Node.js / Express / TypeScript)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: nagpur-marketplace-backend
+    runtime: node
+    plan: starter
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    preDeployCommand: npm run migrate:pg && npm run bootstrap:admin
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nagpur-marketplace-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGINS
+        value: https://nagpur-materials.onrender.com,https://nagpur-marketplace-frontend.onrender.com
+      - key: CLIENT_URL
+        value: https://nagpur-materials.onrender.com
+      - key: INITIAL_ADMIN_EMAIL
+        value: admin@nagpurmaterials.local
+      - key: INITIAL_ADMIN_NAME
+        value: "Operations Super Admin"
+      - key: BUSINESS_NAME
+        value: "Nagpur Building Materials"
+      - key: BUSINESS_SERVICE_AREA
+        value: "Nagpur and nearby serviceable areas"
+      - key: BUSINESS_PHONE
+        value: "+917120000000"
+      - key: BUSINESS_WHATSAPP
+        value: "+919876543210"
+      - key: BUSINESS_SUPPORT_EMAIL
+        value: "support@nagpurmaterials.local"
+
+  # ----------------------------------------------------------------------------
+  # 2. Frontend SPA Web Service (React 19 / Vite / Tailwind)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: nagpur-marketplace-frontend
+    runtime: static
+    plan: free
+    region: singapore
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://nagpur-marketplace-backend.onrender.com/api/v1
+      - key: VITE_BUSINESS_PHONE
+        value: "+917120000000"
+      - key: VITE_BUSINESS_WHATSAPP
+        value: "+919876543210"
+      - key: VITE_SUPPORT_EMAIL
+        value: "support@nagpurmaterials.local"
+
+databases:
+  # ----------------------------------------------------------------------------
+  # 3. Production Managed PostgreSQL Database
+  # ----------------------------------------------------------------------------
+  - name: nagpur-marketplace-postgres
+    plan: starter
+    region: singapore
+    databaseName: marketplace_db
+    user: marketplace_user
+    postgresMajorVersion: 16

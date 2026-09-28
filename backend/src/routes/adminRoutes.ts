@@ -14,16 +14,27 @@ import {
   categoryUpdateSchema,
   variantCreateSchema,
   variantUpdateSchema,
+  adminUserCreateSchema,
+  adminUserStatusSchema,
 } from '../schemas/index.js';
 
 const router = Router();
 const adminAuth = [authenticate, authorize('ADMIN', 'SUPER_ADMIN')];
+const superAdminAuth = [authenticate, authorize('SUPER_ADMIN')];
 
 // -----------------------------------------------------------------------------
 // Operations Dashboard & Settings
 // -----------------------------------------------------------------------------
 router.get('/dashboard/summary', ...adminAuth, AdminController.getDashboardSummary);
-router.get('/settings', authenticate, authorize('SUPER_ADMIN'), AdminController.getSystemSettings);
+router.get('/settings', ...superAdminAuth, AdminController.getSystemSettings);
+
+// -----------------------------------------------------------------------------
+// Multi-Admin User Management (SUPER_ADMIN Only)
+// -----------------------------------------------------------------------------
+router.get('/users', ...superAdminAuth, AdminController.getAdminUsers);
+router.post('/users', ...superAdminAuth, validate(adminUserCreateSchema), AdminController.createAdminUser);
+router.patch('/users/:id/status', ...superAdminAuth, validate(adminUserStatusSchema), AdminController.updateAdminUserStatus);
+
 
 // -----------------------------------------------------------------------------
 // Material Catalog Management (Phase 3 Categories & Variants)
