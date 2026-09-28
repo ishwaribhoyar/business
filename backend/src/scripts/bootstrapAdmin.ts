@@ -40,12 +40,18 @@ export async function bootstrapAdminUser(options?: BootstrapAdminOptions): Promi
       return { created: false, email };
     }
 
-    // Insert new Super Admin
-    await pool.query(
+    // Insert new Super Admin (concurrency-safe: ON CONFLICT DO NOTHING)
+    const insertRes = await pool.query(
       `INSERT INTO admin_users (id, email, password_hash, full_name, role, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'SUPER_ADMIN', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+       VALUES ($1, $2, $3, $4, 'SUPER_ADMIN', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT (email) DO NOTHING`,
       [id, email, passwordHash, fullName]
     );
+
+    if ((insertRes.rowCount ?? 0) === 0) {
+      Logger.info(`Bootstrap: Admin user '${email}' already existed upon concurrent insert.`);
+      return { created: false, email };
+    }
 
     Logger.info(`Bootstrap: Created initial SUPER_ADMIN '${email}' in PostgreSQL.`);
     return { created: true, email };
@@ -58,10 +64,15 @@ export async function bootstrapAdminUser(options?: BootstrapAdminOptions): Promi
       return { created: false, email };
     }
 
-    db.prepare(`
-      INSERT INTO admin_users (id, email, password_hash, full_name, role, is_active, created_at, updated_at)
+    const info = db.prepare(`
+      INSERT OR IGNORE INTO admin_users (id, email, password_hash, full_name, role, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, 'SUPER_ADMIN', 1, ?, ?)
     `).run(id, email, passwordHash, fullName, now, now);
+
+    if (info.changes === 0) {
+      Logger.info(`Bootstrap: Admin user '${email}' already existed upon concurrent insert.`);
+      return { created: false, email };
+    }
 
     Logger.info(`Bootstrap: Created initial SUPER_ADMIN '${email}' in SQLite.`);
     return { created: true, email };

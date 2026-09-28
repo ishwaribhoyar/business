@@ -41,6 +41,10 @@ On Render, the managed PostgreSQL database (`marketplace_db`) provides automated
 | **Logical Dump (`pg_dump`)** | Scheduled CLI / GitHub Action | Weekly / Pre-deploy | 90 days | Encrypted Cloud Storage |
 | **Pre-Migration Snapshot** | Manual trigger before migrations | On-demand | 14 days | Local + Cloud |
 
+> [!IMPORTANT]
+> **Render Plan Dependencies for PITR:**
+> On the Render platform, continuous WAL archiving and Point-in-Time Recovery (PITR) are exclusive features of paid managed PostgreSQL instances (Starter, Standard, Pro tiers). If running on a Free or development tier, automated daily snapshots and PITR are **not** provided by Render; administrators must configure scheduled logical `pg_dump` jobs (e.g. via GitHub Actions or cron worker) to satisfy data retention requirements. Always verify the active backup tier and retention policies in the Render Dashboard settings.
+
 ---
 
 ## 3. Logical Backup Procedure (`pg_dump`)

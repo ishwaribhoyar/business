@@ -8,7 +8,10 @@
 
 ## 1. Production Architecture Overview
 
-The platform is deployed as a high-availability, modular monolith infrastructure on Render:
+> [!NOTE]
+> **Deployment Status:** This repository provides the complete, production-ready Render Infrastructure-as-Code blueprint (`render.yaml`), PostgreSQL migration engine, health probes (`/health`, `/ready`), and multi-user RBAC security. Live deployment requires provisioning via a Render account with a managed PostgreSQL 16 database. All configurations and build outputs have been verified via 89 automated tests and clean production builds (`tsc` and `vite build`).
+
+The platform is designed for high-availability, modular monolith deployment on Render:
 
 ```
 [ Customer / Admin Browser ]
@@ -126,6 +129,8 @@ On startup:
 - **Safety Invariants:**
   - Self-deactivation is blocked server-side.
   - The system prevents deactivating the sole active Super Admin.
+  - Bootstrapping is concurrency-safe and idempotent (`ON CONFLICT (email) DO NOTHING`). Subsequent runs will never overwrite existing passwords or credentials.
+- **Post-Bootstrap Security:** After provisioning the initial Super Admin, `INITIAL_ADMIN_PASSWORD` should be rotated or removed from Render environment variables.
 
 ---
 

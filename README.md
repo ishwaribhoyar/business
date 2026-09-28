@@ -1,6 +1,6 @@
 # Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 
-[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-84%2F84%20Passing-emerald)](backend/tests/)
+[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-89%2F89%20Passing-emerald)](backend/tests/)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture.md)
 [![Database](https://img.shields.io/badge/Database-PostgreSQL%2016%20%7C%20Render-indigo)](docs/postgresql.md)
 [![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](PRODUCT_SCOPE.md)
@@ -42,7 +42,7 @@ All developers and AI coding agents must read [PRODUCT_SCOPE.md](PRODUCT_SCOPE.m
 - **Database (Local Development / Isolated Tests):** SQLite with WAL mode via `node:sqlite`. Production strictly rejects SQLite and enforces PostgreSQL.
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, Lucide Icons, React Router DOM (v6).
 - **Deployment:** Render Cloud Platform via `render.yaml` Infrastructure-as-Code (Backend Web Service, Frontend Static Site, Managed PostgreSQL).
-- **Testing:** Vitest + Supertest automated testing framework (84/84 passing tests).
+- **Testing:** Vitest + Supertest automated testing framework (89/89 passing tests across 6 suites).
 
 ---
 
@@ -145,7 +145,7 @@ npm run migrate:data
 ```bash
 npm test
 ```
-*Executes all 84 automated tests across Foundation (13 tests), Customer Marketplace (13 tests), Admin Operations (23 tests), Hierarchical Catalog (16 tests), and Phase 4 Production/PostgreSQL/RBAC (19 tests).*
+*Executes all 89 automated tests across Foundation (13 tests), Customer Marketplace (13 tests), Admin Operations (23 tests), Hierarchical Catalog (16 tests), Phase 4 Production/PostgreSQL/RBAC (19 tests), and Deep Concurrency Stress (5 tests).*
 
 ### 7. Start Development Servers
 ```bash
@@ -173,7 +173,7 @@ npm run dev:frontend
 - **Phase 1 Customer Marketplace & Quote Request:** ✅ **COMPLETE (with Phase 1.1 Factual Cleanup)**
 - **Phase 2 Admin Operations, Quotation Engine & Fulfillment:** ✅ **COMPLETE (with Phase 2.1 Operational Integrity Audit)**
 - **Phase 3 Hierarchical Material Catalog & Variants:** ✅ **COMPLETE**
-- **Phase 4 PostgreSQL Migration, Multi-User RBAC & Render Deployment:** ✅ **COMPLETE**
+- **Phase 4 PostgreSQL Architecture, Multi-User RBAC & Render Readiness:** ✅ **ARCHITECTURE & CONFIGURATION COMPLETE (VERIFICATION GATE PASSED)**
   - PostgreSQL 16 primary production database with connection pooling (`pg.Pool`)
   - Strict production enforcement: server crashes fast on startup if SQLite is configured in production
   - Exact `NUMERIC(12,2)` representation for all financial fields (no floating-point money)
@@ -183,5 +183,7 @@ npm run dev:frontend
   - Server-side role authorization and administrative user management (`/api/v1/admin/users`)
   - Production security hardening: CORS origin restrictions, rate limiting, Helmet, sanitized errors
   - Render Infrastructure-as-Code blueprint (`render.yaml`) with health (`/health`) and readiness (`/ready`) probes
-  - 84/84 automated tests passing across 5 suites; clean backend and frontend production builds
-- **Full Production MVP:** 🟢 **READY FOR RENDER DEPLOYMENT**
+  - 89/89 automated tests passing across 6 suites; clean backend and frontend production builds
+  - Concurrency-safe admin bootstrap with `ON CONFLICT (email) DO NOTHING`
+  - Deep concurrency stress suite verifying quotation revisions, payment ledgers, unbroken status lineage, and multi-user audit attribution
+- **Live Render Deployment:** 🟡 **READY FOR CLOUD PROVISIONING** (Code and config verified; deployment awaits active user Render account connection)

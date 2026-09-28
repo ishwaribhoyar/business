@@ -97,18 +97,27 @@ Verifies that all orders with `variant_id` maintain intact `category_name_snapsh
 
 ---
 
-## 4. Rollback Plan
+## 4. Rollback & Disaster Recovery Protocol
 
-If a migration fails or data discrepancies are detected:
-1. The migration transaction is automatically aborted via `ROLLBACK`.
-2. Target PostgreSQL tables remain in their pre-migration state.
-3. The source SQLite database (`data/marketplace.sqlite`) is accessed in read-only mode during migration and is never modified.
-4. To clean the target database completely if required:
+It is critical to distinguish between **transactional execution rollback** and **schema migration rollback / restore**:
+
+### A. Execution Transaction Rollback (Automatic)
+During runtime operation or execution of `migrateSqliteToPostgres()`:
+1. All table insertions and validation checks execute inside a single PostgreSQL transaction (`BEGIN ... COMMIT`).
+2. If any table insert fails or any verification assertion is violated, the client immediately issues `ROLLBACK`.
+3. Target PostgreSQL tables remain completely unaffected (zero partial or phantom records inserted).
+4. The source SQLite database (`data/marketplace.sqlite`) is opened in read-only mode and is never modified.
+
+### B. Schema Migration Rollback (Disaster Recovery)
+If a deployed schema migration in `schema_migrations` must be reverted:
+1. **PITR Restore (Recommended for Cloud):** If running on a paid Render PostgreSQL plan, trigger a Point-in-Time Recovery rollback to the minute prior to the migration deployment.
+2. **Logical Dump Restore:** Restore from the pre-migration `pg_dump` snapshot as documented in `docs/backup-recovery.md`.
+3. **Clean Reset (Development / Staging):**
    ```sql
    DROP SCHEMA public CASCADE;
    CREATE SCHEMA public;
    ```
-   Followed by re-running:
+   Followed by re-running the migration suite:
    ```bash
    npm run migrate:pg
    ```
