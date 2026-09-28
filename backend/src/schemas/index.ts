@@ -12,7 +12,10 @@ export const loginSchema = z.object({
 });
 
 export const quoteRequestSchema = z.object({
-  material_id: z.string().min(1, 'Material selection is required'),
+  material_id: z.string().optional(),
+  category_id: z.string().optional(),
+  variant_id: z.string().optional(),
+  specifications: z.record(z.any()).optional().nullable(),
   quantity: z.number().positive('Quantity must be greater than 0'),
   unit: z.string().min(1, 'Unit is required'),
   delivery_address: z.string().min(5, 'Delivery address must be at least 5 characters').trim(),
@@ -36,7 +39,41 @@ export const quoteRequestSchema = z.object({
   additional_notes: z.string().max(500, 'Notes cannot exceed 500 characters').optional().or(z.literal('')),
   map_pin_url: z.string().url('Map pin must be a valid URL').optional().or(z.literal('')),
   qr_campaign_code: z.string().optional().or(z.literal('')),
+}).refine(
+  (data) => !!(data.material_id || data.variant_id || data.category_id),
+  {
+    message: 'Either material_id, category_id, or variant_id must be provided',
+    path: ['variant_id'],
+  }
+);
+
+export const categoryCreateSchema = z.object({
+  name: z.string().min(2, 'Category name must be at least 2 characters'),
+  slug: z.string().min(2, 'Slug must be at least 2 characters'),
+  description: z.string().min(5, 'Description must be at least 5 characters'),
+  image_url: z.string().optional().nullable(),
+  display_order: z.number().optional().default(0),
+  is_active: z.number().min(0).max(1).optional().default(1),
 });
+
+export const categoryUpdateSchema = categoryCreateSchema.partial();
+
+export const variantCreateSchema = z.object({
+  category_id: z.string().min(1, 'Category ID is required'),
+  name: z.string().min(2, 'Variant name must be at least 2 characters'),
+  slug: z.string().min(2, 'Slug must be at least 2 characters'),
+  short_description: z.string().min(5, 'Short description must be at least 5 characters'),
+  detailed_description: z.string().optional().nullable(),
+  image_url: z.string().optional().nullable(),
+  unit: z.string().min(1, 'Unit is required'),
+  min_quantity: z.number().min(0.01).optional().default(1),
+  indicative_price: z.number().optional().nullable(),
+  specifications_schema: z.union([z.string(), z.array(z.any())]).optional(),
+  display_order: z.number().optional().default(0),
+  is_active: z.number().min(0).max(1).optional().default(1),
+});
+
+export const variantUpdateSchema = variantCreateSchema.partial();
 
 export const orderStatusUpdateSchema = z.object({
   status: z.enum([

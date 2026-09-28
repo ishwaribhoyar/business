@@ -3,6 +3,8 @@ import { ResponseFormatter } from '../utils/response.js';
 import { CustomerRepository } from '../repositories/customerRepository.js';
 import { OrderRepository } from '../repositories/orderRepository.js';
 import { ProductRepository } from '../repositories/productRepository.js';
+import { CategoryRepository } from '../repositories/categoryRepository.js';
+import { VariantRepository } from '../repositories/variantRepository.js';
 import { QuotationRepository } from '../repositories/quotationRepository.js';
 import { SupplierRepository } from '../repositories/supplierRepository.js';
 import { TruckRepository } from '../repositories/truckRepository.js';
@@ -14,12 +16,15 @@ import { OrderStatusService } from '../services/orderStatusService.js';
 import { QuotationService } from '../services/quotationService.js';
 import { FulfillmentService } from '../services/fulfillmentService.js';
 import { PaymentService } from '../services/paymentService.js';
+import { CatalogService } from '../services/catalogService.js';
 import { Order, Customer, OrderStatusHistory, OrderNote } from '../models/index.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 
 const customerRepo = new CustomerRepository();
 const orderRepo = new OrderRepository();
 const productRepo = new ProductRepository();
+const categoryRepo = new CategoryRepository();
+const variantRepo = new VariantRepository();
 const quotationRepo = new QuotationRepository();
 const supplierRepo = new SupplierRepository();
 const truckRepo = new TruckRepository();
@@ -28,6 +33,7 @@ const paymentRepo = new PaymentRepository();
 
 const notificationService = new NotificationService();
 const auditService = new AuditService();
+const catalogService = new CatalogService(categoryRepo, variantRepo);
 const orderStatusService = new OrderStatusService(orderRepo, quotationRepo, auditService);
 const quotationService = new QuotationService(quotationRepo, orderRepo, auditService);
 const fulfillmentService = new FulfillmentService(
@@ -42,8 +48,14 @@ const paymentService = new PaymentService(paymentRepo, orderRepo, quotationRepo,
 
 function generateOrderReference(): string {
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-  const randomStr = Math.floor(1000 + Math.random() * 9000).toString();
-  return `NGP-${dateStr}-${randomStr}`;
+  let ref = '';
+  let attempts = 0;
+  do {
+    const randomStr = Math.floor(1000 + Math.random() * 9000).toString();
+    ref = `NGP-${dateStr}-${randomStr}`;
+    attempts++;
+  } while (orderRepo.findByReference(ref) && attempts < 100);
+  return ref;
 }
 
 export class OrderController {
@@ -54,18 +66,66 @@ export class OrderController {
     try {
       const payload = req.body;
 
-      // 1. Resolve product by ID or Slug
-      const product = productRepo.findById(payload.material_id) || productRepo.findBySlug(payload.material_id);
-      if (!product) {
-        throw new NotFoundError(`Material product with id '${payload.material_id}'`);
+      // 1. Resolve Category, Variant, and Product
+      let category = null;
+      let variant = null;
+      let validatedSpecs: Record<string, string> = {};
+
+      if (payload.variant_id) {
+        variant = variantRepo.findById(payload.variant_id) || variantRepo.findBySlug(payload.variant_id);
+        if (!variant) {
+          throw new NotFoundError(`Material variant '${payload.variant_id}'`);
+        }
+        if (variant.is_active === 0) {
+          throw new ValidationError(`Material variant '${variant.name}' is currently inactive and cannot be selected.`);
+        }
+        category = categoryRepo.findById(variant.category_id);
+        if (!category || category.is_active === 0) {
+          throw new ValidationError(`Material category for variant '${variant.name}' is inactive.`);
+        }
+        // Validate specs
+        validatedSpecs = catalogService.validateSpecifications(variant, payload.specifications);
+        // Validate quantity & unit
+        catalogService.validateQuantityAndUnit(variant, payload.quantity, payload.unit);
+      } else {
+        // Fallback for legacy material_id / category_id
+        const identifier = payload.category_id || payload.material_id;
+        if (!identifier) {
+          throw new ValidationError('A material category or variant selection is required.');
+        }
+        category = categoryRepo.findBySlug(identifier) || categoryRepo.findById(identifier);
+        const legacyProduct = productRepo.findById(identifier) || productRepo.findBySlug(identifier);
+
+        if (!category && !legacyProduct) {
+          throw new NotFoundError(`Material product '${identifier}'`);
+        }
+
+        // If category found, pick first active variant if available
+        if (category) {
+          const variants = variantRepo.findByCategory(category.id, true);
+          if (variants.length > 0) {
+            variant = variants[0];
+            if (payload.specifications) {
+              validatedSpecs = catalogService.validateSpecifications(variant, payload.specifications);
+            }
+            if (payload.unit && payload.unit.toLowerCase() !== variant.unit.toLowerCase()) {
+              throw new ValidationError(
+                `Selected unit '${payload.unit}' is not compatible with material '${category.name}'. Supported unit is '${variant.unit}'.`
+              );
+            }
+          }
+        } else if (legacyProduct) {
+          if (payload.unit && payload.unit.toLowerCase() !== legacyProduct.unit.toLowerCase()) {
+            throw new ValidationError(
+              `Selected unit '${payload.unit}' is not compatible with material '${legacyProduct.name}'. Supported unit is '${legacyProduct.unit}'.`
+            );
+          }
+        }
       }
 
-      // 2. Validate unit compatibility against product configuration
-      if (payload.unit && payload.unit.toLowerCase() !== product.unit.toLowerCase()) {
-        throw new ValidationError(
-          `Selected unit '${payload.unit}' is not compatible with material '${product.name}'. Supported unit is '${product.unit}'.`
-        );
-      }
+      const legacyFallback = productRepo.findBySlug(category?.slug || '') || productRepo.findById(variant?.id || '') || productRepo.findAllActive()[0];
+      const productId = legacyFallback?.id || variant?.id || category?.id || 'prod_material';
+      const productName = variant?.name || category?.name || legacyFallback?.name || 'Bulk Material';
 
       const now = new Date().toISOString();
       const normalizedMobile = payload.mobile_number.replace(/\D/g, '').slice(-10);
@@ -73,7 +133,7 @@ export class OrderController {
         ? payload.whatsapp_number.replace(/\D/g, '').slice(-10)
         : normalizedMobile;
 
-      // 3. Create or resolve customer by mobile number (no password or account needed)
+      // 2. Create or resolve customer by mobile number (no password or account needed)
       let customer = customerRepo.findByMobile(normalizedMobile);
       if (!customer) {
         customer = {
@@ -91,10 +151,10 @@ export class OrderController {
         customerRepo.create(customer);
       }
 
-      // 4. Duplicate submission protection (idempotency window: 60s)
+      // 3. Duplicate submission protection (idempotency window: 60s)
       const recentDuplicate = orderRepo.findRecentDuplicate(
         customer.id,
-        product.id,
+        productId,
         payload.quantity,
         payload.delivery_address,
         60
@@ -109,7 +169,7 @@ export class OrderController {
             status: recentDuplicate.status,
             message: 'Your quote request has already been received and is being processed by our operations desk.',
             whatsappDirectUrl: notificationService.getOperationalWhatsAppUrl(
-              `Hi, I recently submitted a quote request (Ref: ${recentDuplicate.order_reference}) for ${payload.quantity} ${payload.unit} of ${product.name} in ${payload.area_pincode}.`
+              `Hi, I recently submitted a quote request (Ref: ${recentDuplicate.order_reference}) for ${payload.quantity} ${payload.unit} of ${productName} in ${payload.area_pincode}.`
             ),
           },
           200
@@ -117,17 +177,23 @@ export class OrderController {
         return;
       }
 
-      // 5. Create order record in NEW status
+      // 4. Create order record in NEW status with Phase 3 snapshots
       const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const orderRef = generateOrderReference();
+
+      const categoryNameSnapshot = category?.name ?? legacyFallback?.name ?? 'Building Material';
+      const variantNameSnapshot = variant?.name ?? null;
+      const specsSnapshot = Object.keys(validatedSpecs).length > 0
+        ? JSON.stringify(validatedSpecs)
+        : (payload.specifications ? JSON.stringify(payload.specifications) : null);
 
       const order: Order = {
         id: orderId,
         order_reference: orderRef,
         customer_id: customer.id,
-        product_id: product.id,
+        product_id: productId,
         quantity: payload.quantity,
-        unit: product.unit,
+        unit: payload.unit,
         delivery_address: payload.delivery_address,
         area_pincode: payload.area_pincode,
         preferred_delivery_date: payload.preferred_delivery_date,
@@ -140,13 +206,19 @@ export class OrderController {
         current_quotation_id: null,
         payment_status: 'Pending',
         qr_campaign_id: payload.qr_campaign_code || null,
+        category_id: category?.id ?? null,
+        variant_id: variant?.id ?? null,
+        specifications: specsSnapshot,
+        category_name_snapshot: categoryNameSnapshot,
+        variant_name_snapshot: variantNameSnapshot,
+        specifications_snapshot: specsSnapshot,
         created_at: now,
         updated_at: now,
       };
 
       orderRepo.create(order);
 
-      // 6. Record initial status history
+      // 5. Record initial status history
       const history: OrderStatusHistory = {
         id: `osh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         order_id: orderId,
@@ -158,17 +230,35 @@ export class OrderController {
       };
       orderRepo.recordStatusHistory(history);
 
-      // 7. Audit log creation
+      // 6. Audit log creation
       auditService.recordAction({
         action: 'CUSTOMER_SUBMITTED_QUOTE_REQUEST',
         entityType: 'ORDER',
         entityId: orderId,
-        changes: { orderReference: orderRef, status: 'NEW' },
+        changes: {
+          orderReference: orderRef,
+          status: 'NEW',
+          category: categoryNameSnapshot,
+          variant: variantNameSnapshot,
+          quantity: payload.quantity,
+          unit: payload.unit,
+        },
         ipAddress: req.ip,
       });
 
-      // 8. Trigger notification
+      // 7. Trigger notification
       notificationService.notifyOrderReceived(customer.mobile_number, orderRef, customer.full_name);
+
+      // Format WhatsApp prefill text
+      let materialDisplay = variantNameSnapshot
+        ? `${variantNameSnapshot} (${categoryNameSnapshot})`
+        : categoryNameSnapshot;
+      if (Object.keys(validatedSpecs).length > 0) {
+        const specsText = Object.entries(validatedSpecs)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(', ');
+        materialDisplay += ` [${specsText}]`;
+      }
 
       ResponseFormatter.success(
         res,
@@ -178,7 +268,7 @@ export class OrderController {
           status: order.status,
           message: 'Your quote request has been received. Our operations team will contact you shortly with the delivered price.',
           whatsappDirectUrl: notificationService.getOperationalWhatsAppUrl(
-            `Hi, I just submitted a quote request (Ref: ${orderRef}) for ${payload.quantity} ${payload.unit} of ${product.name} in ${payload.area_pincode}.`
+            `Hi, I just submitted a quote request (Ref: ${orderRef}) for ${payload.quantity} ${payload.unit} of ${materialDisplay} in ${payload.area_pincode}.`
           ),
         },
         201
@@ -196,6 +286,8 @@ export class OrderController {
       const status = req.query.status as string | undefined;
       const paymentStatus = req.query.payment_status as any | undefined;
       const productId = req.query.product_id as string | undefined;
+      const categoryId = req.query.category_id as string | undefined;
+      const variantId = req.query.variant_id as string | undefined;
       const search = req.query.search as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
       const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
@@ -206,6 +298,8 @@ export class OrderController {
         status: status as any,
         paymentStatus,
         productId,
+        categoryId,
+        variantId,
         search,
         limit,
         offset,

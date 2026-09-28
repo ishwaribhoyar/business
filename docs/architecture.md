@@ -126,6 +126,13 @@ Phase 2 introduces the internal business engine coordinating quotations and phys
    - Automatically derives order payment status (`Pending`, `Partially Paid`, `Paid`, `Refunded`).
    - Guards against overpayment beyond the frozen quoted price unless explicitly overridden.
 
+5. **`CatalogService` (Phase 3 Hierarchical Catalog):**
+   - Manages root material categories and civil-engineering standard subtypes.
+   - Validates dynamic technical specification schemas per subtype.
+   - Enforces real-time minimum order volume thresholds and commercial billing units.
+   - Preserves frozen historical snapshots (`category_name_snapshot`, `variant_name_snapshot`, `specifications_snapshot`) on orders to guarantee historical immutability.
+   - Guarantees strict separation between non-binding catalog indicative rates and authoritative manual delivered quotations.
+
 ---
 
 ## 5. Frontend Architecture
@@ -134,9 +141,14 @@ The frontend application provides two distinct operational domains within a sing
 
 1. **Customer Public Area (`/customer`):**
    - Publicly accessible without authentication.
-   - Routes: Home (`/`), Materials Catalog (`/products`), Detail (`/products/:slug`), Quote Request Form (`/get-quote`), How It Works (`/how-it-works`), About (`/about`), Contact (`/contact`), Privacy (`/privacy-policy`), Terms (`/terms`).
+   - **Hierarchical Catalog Routes:**
+     - `/products` (and `/materials`): Category overview (Sand, Bricks, Black Stone / Aggregate, Murum).
+     - `/products/:categorySlug`: Category variant grid showcasing available regional subtypes.
+     - `/products/:categorySlug/:variantSlug`: Technical subtype detail with civil specifications and indicative rate notices.
+     - `/get-quote` (and `/order`): Hierarchical quotation request with dynamic specification schemas, auto-locked units, and min-order validation.
+   - Static & Trust Routes: Home (`/`), How It Works (`/how-it-works`), About (`/about`), Contact (`/contact`), Privacy (`/privacy-policy`), Terms (`/terms`).
    - Persistent WhatsApp CTAs and click-to-call links.
-   - Clean, industrial visual design with accessible contrast and touch-friendly controls.
+   - Clean, industrial light-theme visual design with accessible contrast and touch-friendly controls.
 
 2. **Operations & Admin Area (`/admin`):**
    - Protected by `ProtectedRoute` route guards.

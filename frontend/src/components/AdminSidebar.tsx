@@ -10,12 +10,14 @@ import {
   CreditCard,
   BarChart3,
   Settings,
+  Layers,
 } from 'lucide-react';
 
 export const AdminSidebar: React.FC = () => {
   const menuItems = [
     { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { label: 'Orders', path: '/admin/orders', icon: ShoppingCart },
+    { label: 'Catalog & Variants', path: '/admin/catalog', icon: Layers },
     { label: 'Customers', path: '/admin/customers', icon: Users },
     { label: 'Suppliers', path: '/admin/suppliers', icon: Building2 },
     { label: 'Trucks / Drivers', path: '/admin/trucks', icon: Truck },

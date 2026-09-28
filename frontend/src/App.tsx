@@ -7,7 +7,8 @@ import { ProtectedRoute } from './components/ProtectedRoute.js';
 // Customer Pages
 import { HomePage } from './customer/HomePage.js';
 import { ProductsPage } from './customer/ProductsPage.js';
-import { ProductDetailPage } from './customer/ProductDetailPage.js';
+import { CategoryVariantsPage } from './customer/CategoryVariantsPage.js';
+import { VariantDetailPage } from './customer/VariantDetailPage.js';
 import { QuoteOrderPage } from './customer/QuoteOrderPage.js';
 import { HowItWorksPage } from './customer/HowItWorksPage.js';
 import { AboutPage } from './customer/AboutPage.js';
@@ -18,6 +19,7 @@ import { TermsPage } from './customer/TermsPage.js';
 // Admin Pages
 import { AdminLoginPage } from './admin/AdminLoginPage.js';
 import { AdminDashboardPage } from './admin/AdminDashboardPage.js';
+import { AdminCatalogPage } from './admin/AdminCatalogPage.js';
 import { OrdersPage } from './admin/OrdersPage.js';
 import { OrderDetailPage } from './admin/OrderDetailPage.js';
 import { CustomersPage } from './admin/CustomersPage.js';
@@ -39,7 +41,11 @@ export const App: React.FC = () => {
         <Route element={<CustomerLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
-          <Route path="/products/:slug" element={<ProductDetailPage />} />
+          <Route path="/products/:categorySlug" element={<CategoryVariantsPage />} />
+          <Route path="/products/:categorySlug/:variantSlug" element={<VariantDetailPage />} />
+          <Route path="/materials" element={<ProductsPage />} />
+          <Route path="/materials/:categorySlug" element={<CategoryVariantsPage />} />
+          <Route path="/materials/:categorySlug/:variantSlug" element={<VariantDetailPage />} />
           <Route path="/get-quote" element={<QuoteOrderPage />} />
           <Route path="/order" element={<QuoteOrderPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
@@ -57,6 +63,7 @@ export const App: React.FC = () => {
         <Route element={<ProtectedRoute />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/catalog" element={<AdminCatalogPage />} />
             <Route path="/admin/orders" element={<OrdersPage />} />
             <Route path="/admin/orders/:id" element={<OrderDetailPage />} />
             <Route path="/admin/customers" element={<CustomersPage />} />

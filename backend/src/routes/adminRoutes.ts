@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/adminController.js';
+import { CatalogController } from '../controllers/catalogController.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validate.js';
 import {
@@ -9,6 +10,10 @@ import {
   truckUpdateSchema,
   driverCreateSchema,
   driverUpdateSchema,
+  categoryCreateSchema,
+  categoryUpdateSchema,
+  variantCreateSchema,
+  variantUpdateSchema,
 } from '../schemas/index.js';
 
 const router = Router();
@@ -19,6 +24,17 @@ const adminAuth = [authenticate, authorize('ADMIN', 'SUPER_ADMIN')];
 // -----------------------------------------------------------------------------
 router.get('/dashboard/summary', ...adminAuth, AdminController.getDashboardSummary);
 router.get('/settings', authenticate, authorize('SUPER_ADMIN'), AdminController.getSystemSettings);
+
+// -----------------------------------------------------------------------------
+// Material Catalog Management (Phase 3 Categories & Variants)
+// -----------------------------------------------------------------------------
+router.get('/catalog/categories', ...adminAuth, CatalogController.getAdminCategories);
+router.post('/catalog/categories', ...adminAuth, validate(categoryCreateSchema), CatalogController.createCategory);
+router.patch('/catalog/categories/:id', ...adminAuth, validate(categoryUpdateSchema), CatalogController.updateCategory);
+
+router.get('/catalog/variants', ...adminAuth, CatalogController.getAdminVariants);
+router.post('/catalog/variants', ...adminAuth, validate(variantCreateSchema), CatalogController.createVariant);
+router.patch('/catalog/variants/:id', ...adminAuth, validate(variantUpdateSchema), CatalogController.updateVariant);
 
 // -----------------------------------------------------------------------------
 // Suppliers Management

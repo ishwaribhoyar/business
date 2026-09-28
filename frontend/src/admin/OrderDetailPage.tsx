@@ -289,8 +289,25 @@ export const OrderDetailPage: React.FC = () => {
     }
   };
 
+  let parsedSpecs: Record<string, string> = {};
+  try {
+    const raw = order.specifications_snapshot || order.specifications;
+    if (raw) {
+      parsedSpecs = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    }
+  } catch {}
+
+  const variantDisplayName =
+    order.variant_name_snapshot || order.variant_name || product?.name || 'Material';
+  const categoryDisplayName =
+    order.category_name_snapshot || order.category_name;
+
+  const waMaterialText = categoryDisplayName && variantDisplayName !== categoryDisplayName
+    ? `${variantDisplayName} (${categoryDisplayName})`
+    : variantDisplayName;
+
   const waCustomerPrefill = encodeURIComponent(
-    `Hello ${customer?.full_name || 'Customer'}, regarding your building material quote request (${order.order_reference}) for ${order.quantity} ${order.unit} ${product?.name || ''}...`
+    `Hello ${customer?.full_name || 'Customer'}, regarding your building material quote request (${order.order_reference}) for ${order.quantity} ${order.unit} ${waMaterialText}...`
   );
 
   return (
@@ -536,10 +553,32 @@ export const OrderDetailPage: React.FC = () => {
               Material Requested
             </span>
             <div className="text-base font-bold text-slate-900">
-              {order.quantity} {order.unit} of {product?.name || 'Material'}
+              {order.quantity} {order.unit} — {variantDisplayName}
             </div>
-            <p className="text-xs text-slate-600 leading-normal">
-              {product?.typical_use_cases || 'Standard regional construction application.'}
+            {categoryDisplayName && (
+              <span className="inline-flex text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded">
+                Category: {categoryDisplayName}
+              </span>
+            )}
+            {Object.keys(parsedSpecs).length > 0 && (
+              <div className="pt-2 border-t border-slate-200 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Technical Specifications:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(parsedSpecs).map(([key, val]) => (
+                    <span
+                      key={key}
+                      className="inline-flex items-center text-[11px] bg-amber-50 text-amber-900 border border-amber-200 rounded px-2 py-0.5"
+                    >
+                      <strong className="mr-1 text-amber-950 capitalize">{key.replace(/_/g, ' ')}:</strong> {val}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-slate-400 italic pt-1">
+              Historical snapshot preserved for quotation audit.
             </p>
           </div>
 

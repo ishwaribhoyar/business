@@ -31,7 +31,8 @@ export function runMigrations(db?: DatabaseSync): void {
     insertStmt.run('001_baseline_schema', new Date().toISOString());
     insertStmt.run('002_decouple_drivers', new Date().toISOString());
     insertStmt.run('003_phase2_operations', new Date().toISOString());
-    Logger.info('Successfully applied migration: 001_baseline_schema, 002_decouple_drivers, and 003_phase2_operations');
+    insertStmt.run('004_hierarchical_catalog', new Date().toISOString());
+    Logger.info('Successfully applied baseline schema and registered migrations through 004');
     return;
   }
 
@@ -118,9 +119,85 @@ export function runMigrations(db?: DatabaseSync): void {
       CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);
     `);
 
+    // Migration 003: Phase 2 Operations & Snapshot Enhancements
     const insertStmt = activeDb.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)');
     insertStmt.run('003_phase2_operations', new Date().toISOString());
     Logger.info('Successfully applied migration: 003_phase2_operations');
+  }
+
+  // Migration 004: Phase 3 Hierarchical Material Catalog (Categories & Variants)
+  const checkStmt004 = activeDb.prepare("SELECT version FROM schema_migrations WHERE version = '004_hierarchical_catalog'");
+  const applied004 = checkStmt004.get() as { version: string } | undefined;
+
+  if (!applied004) {
+    Logger.info('Applying migration: 004_hierarchical_catalog...');
+
+    activeDb.exec(`
+      CREATE TABLE IF NOT EXISTS product_categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        description TEXT NOT NULL,
+        image_url TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_product_categories_slug ON product_categories(slug);
+      CREATE INDEX IF NOT EXISTS idx_product_categories_active ON product_categories(is_active);
+
+      CREATE TABLE IF NOT EXISTS product_variants (
+        id TEXT PRIMARY KEY,
+        category_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        short_description TEXT NOT NULL,
+        detailed_description TEXT,
+        image_url TEXT,
+        unit TEXT NOT NULL,
+        min_quantity REAL NOT NULL DEFAULT 1,
+        indicative_price REAL,
+        specifications_schema TEXT NOT NULL DEFAULT '[]',
+        is_active INTEGER NOT NULL DEFAULT 1,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE RESTRICT
+      );
+      CREATE INDEX IF NOT EXISTS idx_product_variants_category ON product_variants(category_id);
+      CREATE INDEX IF NOT EXISTS idx_product_variants_slug ON product_variants(slug);
+      CREATE INDEX IF NOT EXISTS idx_product_variants_active ON product_variants(is_active);
+    `);
+
+    // Safely add category, variant, and snapshot columns to orders
+    const orderCols = [
+      'category_id TEXT REFERENCES product_categories(id)',
+      'variant_id TEXT REFERENCES product_variants(id)',
+      'specifications TEXT',
+      'category_name_snapshot TEXT',
+      'variant_name_snapshot TEXT',
+      'specifications_snapshot TEXT',
+    ];
+
+    for (const colDef of orderCols) {
+      try {
+        activeDb.exec(`ALTER TABLE orders ADD COLUMN ${colDef};`);
+      } catch {
+        // Column may already exist
+      }
+    }
+
+    try {
+      activeDb.exec('CREATE INDEX IF NOT EXISTS idx_orders_category ON orders(category_id);');
+      activeDb.exec('CREATE INDEX IF NOT EXISTS idx_orders_variant ON orders(variant_id);');
+    } catch {
+      // Index creation fallback
+    }
+
+    const insertStmt = activeDb.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)');
+    insertStmt.run('004_hierarchical_catalog', new Date().toISOString());
+    Logger.info('Successfully applied migration: 004_hierarchical_catalog');
   } else {
     Logger.info('All migrations are up to date.');
   }
