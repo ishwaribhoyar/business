@@ -6,6 +6,8 @@ export interface OrderFilterOptions {
   status?: OrderStatus;
   paymentStatus?: PaymentStatus;
   productId?: string;
+  categoryId?: string;
+  variantId?: string;
   search?: string;
   limit?: number;
   offset?: number;
@@ -27,8 +29,10 @@ export class OrderRepository {
         delivery_address, area_pincode, preferred_delivery_date, additional_notes,
         status, cancellation_reason, supplier_id, truck_id, driver_id,
         current_quotation_id, payment_status, qr_campaign_id,
+        category_id, variant_id, specifications,
+        category_name_snapshot, variant_name_snapshot, specifications_snapshot,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -50,19 +54,43 @@ export class OrderRepository {
       order.current_quotation_id ?? null,
       order.payment_status ?? 'Pending',
       order.qr_campaign_id ?? null,
+      order.category_id ?? null,
+      order.variant_id ?? null,
+      order.specifications ?? null,
+      order.category_name_snapshot ?? null,
+      order.variant_name_snapshot ?? null,
+      order.specifications_snapshot ?? null,
       order.created_at,
       order.updated_at
     );
   }
 
   findById(id: string): Order | null {
-    const stmt = this.db.prepare('SELECT * FROM orders WHERE id = ?');
+    const stmt = this.db.prepare(`
+      SELECT o.*,
+             COALESCE(o.category_name_snapshot, cat.name, p.name) as category_name,
+             COALESCE(o.variant_name_snapshot, v.name) as variant_name
+      FROM orders o
+      LEFT JOIN products p ON o.product_id = p.id
+      LEFT JOIN product_categories cat ON o.category_id = cat.id
+      LEFT JOIN product_variants v ON o.variant_id = v.id
+      WHERE o.id = ?
+    `);
     const result = stmt.get(id);
     return (result as unknown as Order) || null;
   }
 
   findByReference(reference: string): Order | null {
-    const stmt = this.db.prepare('SELECT * FROM orders WHERE order_reference = ?');
+    const stmt = this.db.prepare(`
+      SELECT o.*,
+             COALESCE(o.category_name_snapshot, cat.name, p.name) as category_name,
+             COALESCE(o.variant_name_snapshot, v.name) as variant_name
+      FROM orders o
+      LEFT JOIN products p ON o.product_id = p.id
+      LEFT JOIN product_categories cat ON o.category_id = cat.id
+      LEFT JOIN product_variants v ON o.variant_id = v.id
+      WHERE o.order_reference = ?
+    `);
     const result = stmt.get(reference);
     return (result as unknown as Order) || null;
   }
@@ -160,7 +188,15 @@ export class OrderRepository {
   }
 
   findAll(options: OrderFilterOptions = {}): {
-    orders: (Order & { customer_name?: string; customer_mobile?: string; product_name?: string })[];
+    orders: (Order & {
+      customer_name?: string;
+      customer_mobile?: string;
+      product_name?: string;
+      category_name?: string;
+      variant_name?: string;
+      quoted_price?: number;
+      quotation_version?: number;
+    })[];
     total: number;
   } {
     const limit = options.limit ?? 50;
@@ -170,10 +206,14 @@ export class OrderRepository {
 
     let baseQuery = `
       SELECT o.*, c.full_name as customer_name, c.mobile_number as customer_mobile, p.name as product_name,
+             COALESCE(o.category_name_snapshot, cat.name, p.name) as category_name,
+             COALESCE(o.variant_name_snapshot, v.name) as variant_name,
              q.final_delivered_price as quoted_price, q.version as quotation_version
       FROM orders o
       LEFT JOIN customers c ON o.customer_id = c.id
       LEFT JOIN products p ON o.product_id = p.id
+      LEFT JOIN product_categories cat ON o.category_id = cat.id
+      LEFT JOIN product_variants v ON o.variant_id = v.id
       LEFT JOIN quotations q ON o.current_quotation_id = q.id
       WHERE 1=1
     `;
@@ -181,6 +221,9 @@ export class OrderRepository {
       SELECT COUNT(*) as total
       FROM orders o
       LEFT JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN products p ON o.product_id = p.id
+      LEFT JOIN product_categories cat ON o.category_id = cat.id
+      LEFT JOIN product_variants v ON o.variant_id = v.id
       WHERE 1=1
     `;
 
@@ -206,6 +249,20 @@ export class OrderRepository {
       countQuery += ' AND o.product_id = ?';
       params.push(options.productId);
       countParams.push(options.productId);
+    }
+
+    if (options.categoryId) {
+      baseQuery += ' AND (o.category_id = ? OR cat.slug = ?)';
+      countQuery += ' AND (o.category_id = ? OR cat.slug = ?)';
+      params.push(options.categoryId, options.categoryId);
+      countParams.push(options.categoryId, options.categoryId);
+    }
+
+    if (options.variantId) {
+      baseQuery += ' AND (o.variant_id = ? OR v.slug = ?)';
+      countQuery += ' AND (o.variant_id = ? OR v.slug = ?)';
+      params.push(options.variantId, options.variantId);
+      countParams.push(options.variantId, options.variantId);
     }
 
     if (options.search && options.search.trim()) {
@@ -235,6 +292,10 @@ export class OrderRepository {
       customer_name?: string;
       customer_mobile?: string;
       product_name?: string;
+      category_name?: string;
+      variant_name?: string;
+      quoted_price?: number;
+      quotation_version?: number;
     })[];
 
     return {

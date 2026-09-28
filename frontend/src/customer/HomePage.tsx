@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_CONFIG } from '../config/index.js';
 import { productService } from '../services/productService.js';
-import { Product } from '../types/index.js';
+import { catalogService } from '../services/catalogService.js';
+import { Product, ProductCategory } from '../types/index.js';
 import { usePageMeta } from '../hooks/usePageMeta.js';
 import {
   Truck,
@@ -23,12 +24,22 @@ import {
 export const HomePage: React.FC = () => {
   usePageMeta(
     'Bulk Building Material Delivery in Nagpur',
-    'Order Sand, Bricks, Black Stone Aggregate, and Murum with transparent delivered quotations in Nagpur. Verified quarry network and managed truck dispatch directly to your construction site.'
+    'Order Sand, Bricks, Black Stone Aggregate, and Murum with transparent delivered quotations in Nagpur. Sourced from verified quarry network and managed truck dispatch directly to your construction site.'
   );
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
 
   useEffect(() => {
+    catalogService
+      .getCategories(true)
+      .then((cats) => {
+        if (cats && cats.length > 0) {
+          setCategories(cats);
+        }
+      })
+      .catch(() => {});
+
     productService
       .getProducts()
       .then((data) => {
@@ -130,25 +141,25 @@ export const HomePage: React.FC = () => {
 
                 {/* Quick Material Tiles */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  {displayProducts.map((mat) => (
+                  {(categories.length > 0 ? categories : displayProducts).map((item: any) => (
                     <Link
-                      key={mat.id}
-                      to={`/get-quote?material=${mat.id}`}
+                      key={item.id}
+                      to={`/products/${item.slug}`}
                       className="group p-3.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-200 hover:border-amber-400 rounded-xl transition-all flex flex-col justify-between text-left"
                     >
                       <div>
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                            {mat.unit}
+                            {item.variants ? `${item.variants.length} Subtypes` : item.unit}
                           </span>
                           <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-amber-600 transition" />
                         </div>
                         <h4 className="font-bold text-slate-900 text-xs sm:text-sm mt-1.5 group-hover:text-amber-800">
-                          {mat.name}
+                          {item.name}
                         </h4>
                       </div>
                       <span className="text-[11px] font-semibold text-amber-600 mt-3 block">
-                        Get Quote →
+                        Browse Subtypes →
                       </span>
                     </Link>
                   ))}
@@ -195,41 +206,53 @@ export const HomePage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {displayProducts.map((mat) => (
+          {(categories.length > 0 ? categories : displayProducts).map((cat: any) => (
             <div
-              key={mat.id}
+              key={cat.id}
               className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-amber-400 hover:shadow-md transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-md uppercase tracking-wider border border-amber-200">
-                    {mat.unit}
+                    {cat.variants ? `${cat.variants.length} Subtypes` : cat.unit}
                   </span>
                   <span className="text-[11px] text-slate-500 font-medium">
-                    Min: {mat.min_quantity || 1} {mat.unit}
+                    Nagpur Region
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mt-3">{mat.name}</h3>
+                <h3 className="text-lg font-bold text-slate-900 mt-3">{cat.name}</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  {mat.description || 'Quality verified bulk construction material for Nagpur construction sites.'}
+                  {cat.description || 'Quality verified bulk construction material for Nagpur construction sites.'}
                 </p>
 
-                {mat.typical_use_cases && (
-                  <p className="text-[11px] text-slate-500 mt-3 pt-3 border-t border-slate-100">
-                    <strong className="text-slate-700">Uses:</strong> {mat.typical_use_cases}
-                  </p>
+                {cat.variants && cat.variants.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Available Subtypes:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {cat.variants.map((v: any) => (
+                        <span
+                          key={v.id}
+                          className="inline-flex text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200"
+                        >
+                          {v.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                 <Link
-                  to={`/products/${mat.slug}`}
+                  to={`/products/${cat.slug}`}
                   className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                 >
-                  View Details
+                  Explore Subtypes →
                 </Link>
                 <Link
-                  to={`/get-quote?material=${mat.id}`}
+                  to={`/get-quote?category=${cat.slug}`}
                   className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200 transition"
                 >
                   <span>Get Quote</span>

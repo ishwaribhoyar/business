@@ -54,8 +54,36 @@ Stores internal operations staff credentials and role assignments.
 - `last_login_at` (TEXT): ISO 8601 timestamp of last login.
 - `created_at`, `updated_at` (TEXT): Timestamps.
 
-### 2. `products`
-The 4 authoritative MVP materials.
+### 2. `product_categories` (Phase 3 Hierarchical Catalog)
+Root material categories for the marketplace.
+- `id` (TEXT, PK): Unique category ID (e.g. `cat_sand_01`, `cat_bricks_02`).
+- `name` (TEXT): Display name (`Sand`, `Bricks`, `Black Stone / Aggregate`, `Murum`).
+- `slug` (TEXT, UNIQUE): URL path slug (`sand`, `bricks`, `black-stone-aggregate`, `murum`).
+- `description` (TEXT): Overview and civil engineering context.
+- `image_url` (TEXT, NULLABLE): Visual asset path.
+- `is_active` (INTEGER): Category visibility (1 or 0).
+- `display_order` (INTEGER): Sort priority.
+- `created_at`, `updated_at` (TEXT): Timestamps.
+
+### 3. `product_variants` (Phase 3 Subtypes & Specification Schemas)
+Civil-engineering realistic subtypes under each category with data-driven specification schemas.
+- `id` (TEXT, PK): Unique variant ID (e.g. `var_river_sand_01`, `var_fly_ash_bricks_01`).
+- `category_id` (TEXT, FK -> `product_categories.id`): Parent category.
+- `name` (TEXT): Specific subtype name (e.g. `River Sand (Washed)`, `Fly Ash Bricks`, `20mm Aggregate`).
+- `slug` (TEXT): Category-scoped URL slug.
+- `short_description` (TEXT): Key civil properties and typical use cases.
+- `detailed_description` (TEXT, NULLABLE): Extended technical description.
+- `image_url` (TEXT, NULLABLE): Visual asset path.
+- `unit` (TEXT): Commercial billing unit (`Brass`, `Pieces`).
+- `min_quantity` (REAL, DEFAULT 1): Minimum deliverable quantity threshold.
+- `indicative_price` (REAL, NULLABLE): Purely indicative ex-quarry/factory benchmark rate.
+- `specifications_schema` (TEXT): JSON array of dynamic specification field definitions (`key`, `label`, `type`, `required`, `options`, `helper_text`, `default_value`).
+- `is_active` (INTEGER): Subtype active flag.
+- `display_order` (INTEGER): Sort priority.
+- `created_at`, `updated_at` (TEXT): Timestamps.
+
+### 4. `products` (Legacy Flat Material Compatibility)
+The 4 baseline legacy material records maintained for backward compatibility.
 - `id` (TEXT, PK): Unique product ID.
 - `name` (TEXT): Product name (`Sand`, `Bricks`, `Black Stone / Aggregate`, `Murum`).
 - `slug` (TEXT, UNIQUE): URL slug (`sand`, `bricks`, `black-stone-aggregate`, `murum`).
@@ -122,7 +150,13 @@ The central transaction entity supporting the 11-stage delivery lifecycle.
 - `id` (TEXT, PK): Internal order identifier.
 - `order_reference` (TEXT, UNIQUE): Human-readable reference (`NGP-YYMMDD-XXXX`).
 - `customer_id` (TEXT, FK -> `customers.id`).
-- `product_id` (TEXT, FK -> `products.id`).
+- `product_id` (TEXT, FK -> `products.id`): Legacy product reference.
+- `category_id` (TEXT, FK -> `product_categories.id`, NULLABLE): Selected material category.
+- `variant_id` (TEXT, FK -> `product_variants.id`, NULLABLE): Selected material subtype/variant.
+- `specifications` (TEXT, NULLABLE): JSON string of customer-selected technical specifications.
+- `category_name_snapshot` (TEXT, NULLABLE): Frozen category name at quote creation time.
+- `variant_name_snapshot` (TEXT, NULLABLE): Frozen subtype/variant name at quote creation time.
+- `specifications_snapshot` (TEXT, NULLABLE): Frozen technical specifications JSON at quote creation time.
 - `quantity` (REAL): Requested quantity.
 - `unit` (TEXT): Billing unit.
 - `delivery_address` (TEXT): Site location snapshot.

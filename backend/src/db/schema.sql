@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS admin_users (
   updated_at TEXT NOT NULL
 );
 
--- 2. Products (MVP Materials: Sand, Bricks, Black Stone/Aggregate, Murum)
+-- 2. Products & Hierarchical Material Catalog (Phase 3 Category -> Variant -> Specification)
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -33,6 +33,44 @@ CREATE TABLE IF NOT EXISTS products (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- 2a. Product Categories (Sand, Bricks, Black Stone / Aggregate, Murum)
+CREATE TABLE IF NOT EXISTS product_categories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  description TEXT NOT NULL,
+  image_url TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_product_categories_slug ON product_categories(slug);
+CREATE INDEX IF NOT EXISTS idx_product_categories_active ON product_categories(is_active);
+
+-- 2b. Product Variants / Subtypes
+CREATE TABLE IF NOT EXISTS product_variants (
+  id TEXT PRIMARY KEY,
+  category_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  short_description TEXT NOT NULL,
+  detailed_description TEXT,
+  image_url TEXT,
+  unit TEXT NOT NULL,
+  min_quantity REAL NOT NULL DEFAULT 1,
+  indicative_price REAL,
+  specifications_schema TEXT NOT NULL DEFAULT '[]', -- JSON array of SpecificationFieldSchema
+  is_active INTEGER NOT NULL DEFAULT 1,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (category_id) REFERENCES product_categories(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_product_variants_category ON product_variants(category_id);
+CREATE INDEX IF NOT EXISTS idx_product_variants_slug ON product_variants(slug);
+CREATE INDEX IF NOT EXISTS idx_product_variants_active ON product_variants(is_active);
 
 -- 3. Customers (Public request submitters; no customer login in MVP)
 CREATE TABLE IF NOT EXISTS customers (
@@ -145,16 +183,26 @@ CREATE TABLE IF NOT EXISTS orders (
   current_quotation_id TEXT,
   payment_status TEXT NOT NULL DEFAULT 'Pending' CHECK(payment_status IN ('Pending', 'Partially Paid', 'Paid', 'Refunded')),
   qr_campaign_id TEXT,
+  category_id TEXT,
+  variant_id TEXT,
+  specifications TEXT, -- JSON string of selected specs { [key: string]: string }
+  category_name_snapshot TEXT,
+  variant_name_snapshot TEXT,
+  specifications_snapshot TEXT, -- JSON string
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (customer_id) REFERENCES customers(id),
   FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (category_id) REFERENCES product_categories(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id),
   FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
   FOREIGN KEY (truck_id) REFERENCES trucks(id),
   FOREIGN KEY (driver_id) REFERENCES drivers(id),
   FOREIGN KEY (current_quotation_id) REFERENCES quotations(id),
   FOREIGN KEY (qr_campaign_id) REFERENCES qr_campaigns(id)
 );
+CREATE INDEX IF NOT EXISTS idx_orders_category ON orders(category_id);
+CREATE INDEX IF NOT EXISTS idx_orders_variant ON orders(variant_id);
 
 -- 9. Order Status History (Traceable audit of state transitions)
 CREATE TABLE IF NOT EXISTS order_status_history (

@@ -16,6 +16,8 @@ import {
 export interface OrderListParams {
   status?: string;
   payment_status?: string;
+  category_id?: string;
+  variant_id?: string;
   search?: string;
   limit?: number;
   offset?: number;

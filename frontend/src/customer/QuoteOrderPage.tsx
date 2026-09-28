@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { APP_CONFIG } from '../config/index.js';
-import { productService } from '../services/productService.js';
+import { catalogService } from '../services/catalogService.js';
 import { orderService, QuoteRequestResponse } from '../services/orderService.js';
-import { Product } from '../types/index.js';
+import { ProductCategory, ProductVariant, SpecificationFieldSchema } from '../types/index.js';
 import { Input } from '../components/Input.js';
 import { Button } from '../components/Button.js';
 import { Alert } from '../components/Alert.js';
+import { LoadingSpinner } from '../components/LoadingSpinner.js';
 import { usePageMeta } from '../hooks/usePageMeta.js';
 import {
   CheckCircle2,
@@ -19,6 +20,8 @@ import {
   Package,
   Info,
   Clock,
+  Layers,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 export const QuoteOrderPage: React.FC = () => {
@@ -28,17 +31,22 @@ export const QuoteOrderPage: React.FC = () => {
   );
 
   const [searchParams] = useSearchParams();
-  const initialMaterialParam = searchParams.get('material') || '';
+  const categoryParam = searchParams.get('category') || '';
+  const variantParam = searchParams.get('variant') || '';
+  const legacyMaterialParam = searchParams.get('material') || '';
   const qrParam = searchParams.get('qr') || '';
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
+  const [availableVariants, setAvailableVariants] = useState<ProductVariant[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [specifications, setSpecifications] = useState<Record<string, string>>({});
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
-    material_id: '',
     quantity: 1,
     unit: 'Brass',
     delivery_address: '',
@@ -58,75 +66,182 @@ export const QuoteOrderPage: React.FC = () => {
   const [submittedData, setSubmittedData] = useState<QuoteRequestResponse | null>(null);
   const submitLockRef = useRef(false);
 
-  // Fetch active products from backend
+  // 1. Load Categories with Variants
   useEffect(() => {
-    productService
-      .getProducts()
-      .then((items) => {
-        if (items && items.length > 0) {
-          setProducts(items);
-          // Match preselected material from query param or fallback to first product
-          const matched =
-            items.find((p) => p.id === initialMaterialParam || p.slug === initialMaterialParam) || items[0];
-          setSelectedProduct(matched);
-          setFormData((prev) => ({
-            ...prev,
-            material_id: matched.id,
-            unit: matched.unit,
-            quantity: matched.min_quantity || 1,
-          }));
+    setLoadingCatalog(true);
+    catalogService
+      .getCategories(true)
+      .then((cats) => {
+        if (cats && cats.length > 0) {
+          setCategories(cats);
+
+          // Find target category by param (category or legacy material)
+          const targetCat =
+            cats.find(
+              (c) =>
+                c.id === categoryParam ||
+                c.slug === categoryParam ||
+                c.id === legacyMaterialParam ||
+                c.slug === legacyMaterialParam
+            ) || cats[0];
+
+          setSelectedCategory(targetCat);
+          const variants = targetCat.variants || [];
+          setAvailableVariants(variants);
+
+          // Find target variant if param specified, else pick first
+          const targetVar =
+            variants.find((v) => v.id === variantParam || v.slug === variantParam) ||
+            variants[0] ||
+            null;
+
+          setSelectedVariant(targetVar);
+
+          if (targetVar) {
+            setFormData((prev) => ({
+              ...prev,
+              unit: targetVar.unit,
+              quantity: targetVar.min_quantity || 1,
+            }));
+
+            // Pre-populate default specifications
+            const initialSpecs: Record<string, string> = {};
+            if (targetVar.parsed_specifications) {
+              targetVar.parsed_specifications.forEach((field) => {
+                if (field.default_value) {
+                  initialSpecs[field.key] = field.default_value;
+                } else if (field.options && field.options.length > 0) {
+                  initialSpecs[field.key] = field.options[0];
+                }
+              });
+            }
+            setSpecifications(initialSpecs);
+          }
         }
       })
-      .catch(() => {
-        // Fallback to APP_CONFIG MVP materials if offline
-        const fallbackItems: Product[] = APP_CONFIG.mvpMaterials.map((m) => ({
-          id: m.id,
-          name: m.name,
-          slug: m.slug,
-          category: 'Bulk Material',
-          description: `Quality ${m.name} for construction projects in Nagpur.`,
-          unit: m.unit,
-          min_quantity: m.unit === 'Pieces' ? 1000 : 1,
-          display_order: 1,
-        }));
-        setProducts(fallbackItems);
-        const matched =
-          fallbackItems.find((p) => p.id === initialMaterialParam || p.slug === initialMaterialParam) ||
-          fallbackItems[0];
-        setSelectedProduct(matched);
-        setFormData((prev) => ({
-          ...prev,
-          material_id: matched.id,
-          unit: matched.unit,
-          quantity: matched.min_quantity || 1,
-        }));
+      .catch((err) => {
+        console.error('Failed to load categories for quote form:', err);
+        setErrorMsg('Unable to load current materials catalog. Please refresh or reach out on WhatsApp.');
+      })
+      .finally(() => {
+        setLoadingCatalog(false);
       });
-  }, [initialMaterialParam]);
+  }, [categoryParam, variantParam, legacyMaterialParam]);
 
-  const handleMaterialChange = (materialId: string) => {
-    const product = products.find((p) => p.id === materialId) || null;
-    setSelectedProduct(product);
-    if (product) {
+  // Handle Category Selection Change
+  const handleCategoryChange = (categoryId: string) => {
+    const cat = categories.find((c) => c.id === categoryId) || null;
+    setSelectedCategory(cat);
+    const variants = cat?.variants || [];
+    setAvailableVariants(variants);
+
+    const firstVar = variants.length > 0 ? variants[0] : null;
+    setSelectedVariant(firstVar);
+
+    if (firstVar) {
       setFormData((prev) => ({
         ...prev,
-        material_id: product.id,
-        unit: product.unit,
-        quantity: product.min_quantity || 1,
+        unit: firstVar.unit,
+        quantity: Math.max(prev.quantity, firstVar.min_quantity || 1),
       }));
+
+      const initialSpecs: Record<string, string> = {};
+      if (firstVar.parsed_specifications) {
+        firstVar.parsed_specifications.forEach((field) => {
+          if (field.default_value) {
+            initialSpecs[field.key] = field.default_value;
+          } else if (field.options && field.options.length > 0) {
+            initialSpecs[field.key] = field.options[0];
+          }
+        });
+      }
+      setSpecifications(initialSpecs);
+    } else {
+      setSpecifications({});
     }
+
+    setFieldErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.category;
+      delete copy.variant;
+      return copy;
+    });
+  };
+
+  // Handle Variant Selection Change
+  const handleVariantChange = (variantId: string) => {
+    const v = availableVariants.find((varItem) => varItem.id === variantId) || null;
+    setSelectedVariant(v);
+
+    if (v) {
+      setFormData((prev) => ({
+        ...prev,
+        unit: v.unit,
+        quantity: Math.max(prev.quantity, v.min_quantity || 1),
+      }));
+
+      const initialSpecs: Record<string, string> = {};
+      if (v.parsed_specifications) {
+        v.parsed_specifications.forEach((field) => {
+          if (field.default_value) {
+            initialSpecs[field.key] = field.default_value;
+          } else if (field.options && field.options.length > 0) {
+            initialSpecs[field.key] = field.options[0];
+          }
+        });
+      }
+      setSpecifications(initialSpecs);
+    } else {
+      setSpecifications({});
+    }
+
+    setFieldErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.variant;
+      return copy;
+    });
+  };
+
+  // Handle Dynamic Specification Input Change
+  const handleSpecificationChange = (key: string, value: string) => {
+    setSpecifications((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+    setFieldErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[`spec_${key}`];
+      return copy;
+    });
   };
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.material_id) {
-      errors.material_id = 'Please select a material';
+    if (!selectedCategory) {
+      errors.category = 'Please select a material category';
     }
 
-    if (!formData.quantity || formData.quantity <= 0) {
-      errors.quantity = 'Quantity must be greater than 0';
-    } else if (selectedProduct && selectedProduct.min_quantity && formData.quantity < selectedProduct.min_quantity) {
-      errors.quantity = `Minimum order quantity for ${selectedProduct.name} is ${selectedProduct.min_quantity} ${selectedProduct.unit}`;
+    if (!selectedVariant) {
+      errors.variant = 'Please select a material subtype / variant';
+    } else {
+      // Validate dynamic required specifications
+      if (selectedVariant.parsed_specifications) {
+        for (const field of selectedVariant.parsed_specifications) {
+          if (field.required) {
+            const val = specifications[field.key];
+            if (!val || val.trim().length === 0) {
+              errors[`spec_${field.key}`] = `${field.label} is required`;
+            }
+          }
+        }
+      }
+
+      if (!formData.quantity || formData.quantity <= 0) {
+        errors.quantity = 'Quantity must be greater than 0';
+      } else if (selectedVariant.min_quantity && formData.quantity < selectedVariant.min_quantity) {
+        errors.quantity = `Minimum order quantity for ${selectedVariant.name} is ${selectedVariant.min_quantity} ${selectedVariant.unit}`;
+      }
     }
 
     if (!formData.delivery_address || formData.delivery_address.trim().length < 5) {
@@ -166,7 +281,6 @@ export const QuoteOrderPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent duplicate multi-click submissions
     if (submitLockRef.current || isSubmitting) {
       return;
     }
@@ -181,8 +295,20 @@ export const QuoteOrderPage: React.FC = () => {
 
     try {
       const response = await orderService.submitQuoteRequest({
-        ...formData,
+        category_id: selectedCategory?.id,
+        variant_id: selectedVariant?.id,
+        specifications: Object.keys(specifications).length > 0 ? specifications : undefined,
         quantity: Number(formData.quantity),
+        unit: formData.unit,
+        delivery_address: formData.delivery_address,
+        area_pincode: formData.area_pincode,
+        preferred_delivery_date: formData.preferred_delivery_date,
+        customer_name: formData.customer_name,
+        mobile_number: formData.mobile_number,
+        whatsapp_number: formData.whatsapp_number || undefined,
+        additional_notes: formData.additional_notes || undefined,
+        map_pin_url: formData.map_pin_url || undefined,
+        qr_campaign_code: formData.qr_campaign_code || undefined,
       });
       setSubmittedData(response);
     } catch (err) {
@@ -201,11 +327,11 @@ export const QuoteOrderPage: React.FC = () => {
     setSubmittedData(null);
     setFieldErrors({});
     setErrorMsg(null);
-    if (selectedProduct) {
-      setFormData({
-        material_id: selectedProduct.id,
-        quantity: selectedProduct.min_quantity || 1,
-        unit: selectedProduct.unit,
+    if (selectedVariant) {
+      setFormData((prev) => ({
+        ...prev,
+        quantity: selectedVariant.min_quantity || 1,
+        unit: selectedVariant.unit,
         delivery_address: '',
         area_pincode: '',
         preferred_delivery_date: tomorrowStr,
@@ -215,7 +341,7 @@ export const QuoteOrderPage: React.FC = () => {
         additional_notes: '',
         map_pin_url: '',
         qr_campaign_code: qrParam,
-      });
+      }));
     }
   };
 
@@ -238,17 +364,17 @@ export const QuoteOrderPage: React.FC = () => {
               Request Ref: {submittedData.orderReference}
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-2 max-w-md mx-auto leading-relaxed">
-              Your bulk material requirement has been logged. Our Nagpur operations desk is calculating the exact delivered price with verified supplier and transport haulage.
+              Your bulk material specification has been logged. Our Nagpur operations desk is calculating the exact delivered price with verified supplier and transport haulage.
             </p>
           </div>
 
-          {/* Important Distinction Banner */}
+          {/* Important Quotation-First Banner */}
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-left flex gap-3 text-xs text-blue-900">
             <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
             <div>
               <span className="font-bold block">Quotation-First Business Model</span>
               <p className="mt-0.5 text-blue-800">
-                This is a quotation request, not an auto-charged order. You will receive an all-inclusive delivered quotation to review and confirm before dispatch.
+                This is a quotation request, not an auto-charged order. You will receive an all-inclusive delivered quotation with itemized material and transport costs before any dispatch is scheduled.
               </p>
             </div>
           </div>
@@ -260,11 +386,32 @@ export const QuoteOrderPage: React.FC = () => {
               <span className="font-bold text-slate-900 font-mono text-sm">{submittedData.orderReference}</span>
             </div>
             <div className="flex justify-between border-b border-slate-200 pb-2">
-              <span className="text-slate-500 font-medium">Material Requested:</span>
-              <span className="font-semibold text-slate-800">
-                {selectedProduct?.name} ({formData.quantity} {formData.unit})
+              <span className="text-slate-500 font-medium">Category:</span>
+              <span className="font-semibold text-slate-800">{selectedCategory?.name}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-200 pb-2">
+              <span className="text-slate-500 font-medium">Subtype / Variant:</span>
+              <span className="font-bold text-slate-900">
+                {selectedVariant?.name} ({formData.quantity} {formData.unit})
               </span>
             </div>
+
+            {Object.keys(specifications).length > 0 && (
+              <div className="border-b border-slate-200 pb-2">
+                <span className="text-slate-500 font-medium block mb-1">Specifications:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(specifications).map(([k, v]) => (
+                    <span
+                      key={k}
+                      className="inline-flex items-center text-[11px] bg-white border border-slate-300 rounded px-2 py-0.5 text-slate-700"
+                    >
+                      <strong className="mr-1 text-slate-900">{k}:</strong> {v}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between border-b border-slate-200 pb-2">
               <span className="text-slate-500 font-medium">Site Area / Pincode:</span>
               <span className="font-semibold text-slate-800">{formData.area_pincode}</span>
@@ -316,6 +463,10 @@ export const QuoteOrderPage: React.FC = () => {
     );
   }
 
+  if (loadingCatalog) {
+    return <LoadingSpinner message="Loading material catalog and specifications..." />;
+  }
+
   // -------------------------------------------------------------
   // FORM VIEW
   // -------------------------------------------------------------
@@ -329,7 +480,7 @@ export const QuoteOrderPage: React.FC = () => {
           Request Delivered Quotation
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-          Submit your required material, quantity, and construction site location in Nagpur. Our operations desk calculates an all-inclusive delivered quote with verified transport.
+          Select your material category, exact subtype specification, required quantity, and construction site location in Nagpur. Our operations desk calculates an all-inclusive delivered quote with verified transport.
         </p>
       </div>
 
@@ -340,46 +491,160 @@ export const QuoteOrderPage: React.FC = () => {
         className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6"
         noValidate
       >
-        {/* Section 1: Material & Quantity */}
+        {/* Section 1: Material Category & Subtype */}
         <div>
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-4">
             <Package className="h-4 w-4 text-amber-600" />
-            1. Material & Required Quantity
+            1. Material Category & Subtype
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2">
-              <label htmlFor="material-select" className="block text-sm font-medium text-slate-700 mb-1">
-                Select Building Material <span className="text-red-500">*</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Category Dropdown */}
+            <div>
+              <label htmlFor="category-select" className="block text-sm font-medium text-slate-700 mb-1">
+                Material Category <span className="text-red-500">*</span>
               </label>
               <select
-                id="material-select"
-                value={formData.material_id}
-                onChange={(e) => handleMaterialChange(e.target.value)}
+                id="category-select"
+                value={selectedCategory?.id || ''}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className={`w-full px-3.5 py-2.5 bg-white border rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 transition-colors ${
-                  fieldErrors.material_id
+                  fieldErrors.category
                     ? 'border-red-400 focus:ring-red-500'
                     : 'border-slate-300 focus:ring-amber-500'
                 }`}
                 required
               >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.unit})
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
                   </option>
                 ))}
               </select>
-              {fieldErrors.material_id && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.material_id}</p>
+              {fieldErrors.category && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.category}</p>
               )}
             </div>
 
+            {/* Variant Dropdown */}
+            <div>
+              <label htmlFor="variant-select" className="block text-sm font-medium text-slate-700 mb-1">
+                Subtype / Specification Variant <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="variant-select"
+                value={selectedVariant?.id || ''}
+                onChange={(e) => handleVariantChange(e.target.value)}
+                disabled={availableVariants.length === 0}
+                className={`w-full px-3.5 py-2.5 bg-white border rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 transition-colors ${
+                  fieldErrors.variant
+                    ? 'border-red-400 focus:ring-red-500'
+                    : 'border-slate-300 focus:ring-amber-500'
+                }`}
+                required
+              >
+                {availableVariants.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.unit})
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.variant && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.variant}</p>
+              )}
+            </div>
+          </div>
+
+          {selectedVariant && (
+            <div className="mt-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-700">
+                <span>
+                  Standard Unit: <strong>{selectedVariant.unit}</strong> | Minimum Order:{' '}
+                  <strong>
+                    {selectedVariant.min_quantity} {selectedVariant.unit}
+                  </strong>
+                </span>
+                {selectedCategory && (
+                  <Link
+                    to={`/products/${selectedCategory.slug}/${selectedVariant.slug}`}
+                    className="text-amber-600 hover:text-amber-700 font-semibold shrink-0 ml-2"
+                  >
+                    View detailed specs →
+                  </Link>
+                )}
+              </div>
+              {selectedVariant.indicative_price && (
+                <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
+                  <strong>Indicative Material Rate:</strong> ₹{selectedVariant.indicative_price.toLocaleString('en-IN')} per {selectedVariant.unit} (ex-quarry/factory rate. Final delivered price is quoted based on site haulage distance).
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Section 2: Technical Specifications & Order Quantity */}
+        <div className="pt-4 border-t border-slate-100">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-4">
+            <SlidersHorizontal className="h-4 w-4 text-amber-600" />
+            2. Technical Specifications & Quantity
+          </h2>
+
+          {/* Dynamic Specifications Render */}
+          {selectedVariant?.parsed_specifications && selectedVariant.parsed_specifications.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 p-4 bg-amber-50/40 border border-amber-100 rounded-2xl">
+              {selectedVariant.parsed_specifications.map((field: SpecificationFieldSchema) => (
+                <div key={field.key}>
+                  <label
+                    htmlFor={`spec-${field.key}`}
+                    className="block text-xs font-semibold text-slate-800 mb-1"
+                  >
+                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                  </label>
+
+                  {field.type === 'select' ? (
+                    <select
+                      id={`spec-${field.key}`}
+                      value={specifications[field.key] || ''}
+                      onChange={(e) => handleSpecificationChange(field.key, e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      {field.options?.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id={`spec-${field.key}`}
+                      type={field.type === 'number' ? 'number' : 'text'}
+                      value={specifications[field.key] || ''}
+                      onChange={(e) => handleSpecificationChange(field.key, e.target.value)}
+                      placeholder={field.help_text || `Enter ${field.label.toLowerCase()}`}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  )}
+
+                  {fieldErrors[`spec_${field.key}`] ? (
+                    <p className="mt-1 text-[11px] text-red-600">{fieldErrors[`spec_${field.key}`]}</p>
+                  ) : (
+                    field.help_text && (
+                      <p className="mt-0.5 text-[10px] text-slate-500">{field.help_text}</p>
+                    )
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Quantity Input */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Input
-                label="Quantity"
+                label="Required Quantity"
                 type="number"
                 inputMode="decimal"
-                min="0.5"
+                min={selectedVariant?.min_quantity || 1}
                 step="any"
                 required
                 value={formData.quantity}
@@ -388,35 +653,30 @@ export const QuoteOrderPage: React.FC = () => {
                   setFormData({ ...formData, quantity: isNaN(val) ? 0 : val });
                 }}
                 error={fieldErrors.quantity}
-                helperText={`Billing Unit: ${formData.unit}`}
+                helperText={`Billing Unit: ${formData.unit} (Min: ${selectedVariant?.min_quantity || 1} ${formData.unit})`}
               />
             </div>
-          </div>
 
-          {selectedProduct && (
-            <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between">
-              <span>
-                Standard Unit: <strong>{selectedProduct.unit}</strong> (Minimum order:{' '}
-                <strong>
-                  {selectedProduct.min_quantity} {selectedProduct.unit}
-                </strong>
-                )
-              </span>
-              <Link
-                to={`/products/${selectedProduct.slug}`}
-                className="text-amber-600 hover:text-amber-700 font-semibold shrink-0 ml-2"
-              >
-                View specs →
-              </Link>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Billing Unit
+              </label>
+              <input
+                type="text"
+                disabled
+                value={formData.unit}
+                className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600 font-semibold cursor-not-allowed"
+              />
+              <p className="mt-1 text-xs text-slate-400">Locked to standard commercial unit for this material.</p>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Section 2: Site Location */}
+        {/* Section 3: Site Location */}
         <div className="pt-4 border-t border-slate-100">
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-4">
             <MapPin className="h-4 w-4 text-amber-600" />
-            2. Site Delivery Location (Nagpur)
+            3. Site Delivery Location (Nagpur)
           </h2>
 
           <div className="space-y-4">
@@ -466,11 +726,11 @@ export const QuoteOrderPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 3: Contact Details */}
+        {/* Section 4: Contact Details */}
         <div className="pt-4 border-t border-slate-100">
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-4">
             <Phone className="h-4 w-4 text-amber-600" />
-            3. Contact Information (No Account Required)
+            4. Contact Information (No Account Required)
           </h2>
 
           <div className="space-y-4">
@@ -511,7 +771,7 @@ export const QuoteOrderPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 4: Site Access & Notes */}
+        {/* Section 5: Site Access & Notes */}
         <div className="pt-4 border-t border-slate-100">
           <label htmlFor="notes-textarea" className="block text-sm font-medium text-slate-700 mb-1">
             Site Access or Delivery Notes (Optional)

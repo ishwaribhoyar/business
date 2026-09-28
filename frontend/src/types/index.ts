@@ -12,6 +12,56 @@ export interface Product {
   display_order: number;
 }
 
+// -------------------------------------------------------------
+// Phase 3 Hierarchical Material Catalog
+// -------------------------------------------------------------
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image_url?: string | null;
+  is_active: number;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string;
+  variants?: ProductVariant[];
+}
+
+export interface SpecificationFieldSchema {
+  key: string;
+  label: string;
+  type: 'select' | 'text' | 'number';
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
+  helper_text?: string;
+  help_text?: string;
+  default_value?: string;
+  unit?: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  short_description: string;
+  detailed_description?: string | null;
+  image_url?: string | null;
+  unit: string;
+  min_quantity: number;
+  indicative_price?: number | null;
+  specifications_schema: string;
+  is_active: number;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string;
+  category_name?: string;
+  category_slug?: string;
+  parsed_specifications?: SpecificationFieldSchema[];
+}
+
 export type OrderStatus =
   | 'NEW'
   | 'CONTACTED'
@@ -63,6 +113,13 @@ export interface Order {
   current_quotation_id?: string | null;
   payment_status: PaymentStatus;
   qr_campaign_id?: string | null;
+  // Phase 3 Hierarchical Catalog Fields & Snapshots
+  category_id?: string | null;
+  variant_id?: string | null;
+  specifications?: string | null;
+  category_name_snapshot?: string | null;
+  variant_name_snapshot?: string | null;
+  specifications_snapshot?: string | null;
   created_at: string;
   updated_at: string;
 
@@ -70,6 +127,8 @@ export interface Order {
   customer_name?: string;
   customer_mobile?: string;
   product_name?: string;
+  category_name?: string;
+  variant_name?: string;
   quoted_price?: number;
   quotation_version?: number;
 }
@@ -236,7 +295,10 @@ export interface ApiResponse<T = unknown> {
 }
 
 export interface QuoteRequestFormData {
-  material_id: string;
+  material_id?: string;
+  category_id?: string;
+  variant_id?: string;
+  specifications?: Record<string, string>;
   quantity: number;
   unit: string;
   delivery_address: string;

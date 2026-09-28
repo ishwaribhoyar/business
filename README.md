@@ -1,6 +1,6 @@
 # Digital Building-Material Marketplace & Delivery Platform — Nagpur | MVP
 
-[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-49%2F49%20Passing-emerald)](backend/tests/)
+[![Automated Tests](https://img.shields.io/badge/Automated%20Tests-65%2F65%20Passing-emerald)](backend/tests/)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture.md)
 [![Location](https://img.shields.io/badge/Market-Nagpur%2C%20India-amber)](PRODUCT_SCOPE.md)
 
@@ -22,12 +22,13 @@ All developers and AI coding agents must read [PRODUCT_SCOPE.md](PRODUCT_SCOPE.m
 
 - **Asset-Light Managed Marketplace:** The platform coordinates customers, verified material suppliers, and third-party trucks without owning material inventory or delivery fleets.
 - **Service Area:** Nagpur and currently serviceable nearby areas.
-- **Initial 4 MVP Materials:**
-  1. **Sand** (Brass)
-  2. **Bricks** (Pieces)
-  3. **Black Stone / Aggregate** (Brass)
-  4. **Murum** (Brass)
-- **Quotation-First Pricing:** No automated or algorithmic market pricing in MVP. Prices are calculated, confirmed, and communicated by the operations desk as frozen quotation snapshots.
+- **Hierarchical Material Catalog (Phase 3):**
+  `CATEGORY → SUBTYPE / VARIANT → SPECIFICATION → QUANTITY → QUOTE REQUEST`
+  - **4 Core MVP Categories:** Sand, Bricks, Black Stone / Aggregate, Murum.
+  - **11 Regional Civil Subtypes:** River Sand (Washed), M-Sand, Plaster Sand; Red Clay Bricks, Fly Ash Bricks; 10mm, 20mm, 40mm Aggregate, GSB Mix; Yellow Murum, Red Bharda Murum.
+  - **Data-Driven Specification Schemas:** Technical civil properties (silt content, crushing value, brick class, strength grade, compaction type) dynamically configured per subtype.
+  - **Historical Order Snapshots:** Frozen category name, variant name, and specifications preserved on orders so catalog modifications never alter past order records.
+- **Quotation-First Pricing:** No automated or algorithmic market pricing in MVP. Indicative rates displayed in the catalog are purely non-binding baseline ex-quarry rates. Final delivered prices are calculated, confirmed, and communicated by the operations desk as frozen quotation snapshots.
 - **Human-Assisted Operations:** The MVP uses an internal Admin Operations portal. There are no separate supplier apps or driver apps in Version 1.
 
 ---
@@ -127,7 +128,7 @@ npm run seed
 ```bash
 npm test
 ```
-*Executes all 49 automated tests across Phase 0 Foundation (13 tests), Phase 1 Customer Marketplace (13 tests), and Phase 2 & 2.1 Admin Operations & Quotation Engine (23 tests). Tests cover the 10-stage primary delivery lifecycle + CANCELLED terminal state, transition invariants (strictly requiring supplier, truck, and driver for dispatch), negative transition paths, quotation snapshot versioning and deterministic math, partner registry management, fulfillment dispatch, master data mutation historical immutability, offline payment recording, overpayment guards, order search, multi-filter pagination, and live dashboard metrics.*
+*Executes all 65 automated tests across Phase 0 Foundation (13 tests), Phase 1 Customer Marketplace (13 tests), Phase 2 Admin Operations (23 tests), and Phase 3 Hierarchical Catalog (16 tests). Tests cover the hierarchical Category → Subtype → Specification → Quote flow, dynamic specification schema validation, minimum quantity enforcement, order historical snapshot immutability, indicative price isolation from quotation engine, 10-stage delivery lifecycle + CANCELLED terminal state, strict dispatch invariants, negative transition paths, quotation snapshot versioning, partner registries, fulfillment dispatch, offline payments, and live dashboard metrics.*
 
 ### 6. Start Development Servers
 ```bash
@@ -138,9 +139,12 @@ npm run dev:backend
 npm run dev:frontend
 ```
 - Customer Web App: `http://localhost:3000`
+- Category & Variant Catalog: `http://localhost:3000/products`
+- Subtypes by Category: `http://localhost:3000/products/:categorySlug`
+- Subtype Technical Detail: `http://localhost:3000/products/:categorySlug/:variantSlug`
 - Order / Get Quote: `http://localhost:3000/get-quote` (alias: `/order`)
-- Materials Catalog: `http://localhost:3000/products`
-- Operations Admin Portal: `http://localhost:3000/admin/login`
+- Admin Operations Portal: `http://localhost:3000/admin/login`
+- Admin Catalog Management: `http://localhost:3000/admin/catalog`
 - Backend API Health: `http://localhost:5000/health`
 - Backend API Root: `http://localhost:5000/api/v1`
 
@@ -152,34 +156,32 @@ npm run dev:frontend
 - **Phase 0 Foundation:** ✅ **COMPLETE (with Phase 0.1 Domain Corrections)**
 - **Phase 1 Customer Marketplace & Quote Request:** ✅ **COMPLETE (with Phase 1.1 Factual Cleanup)**
 - **Phase 2 Admin Operations, Quotation Engine & Fulfillment:** ✅ **COMPLETE (with Phase 2.1 Operational Integrity Audit)**
-  - 10-stage primary delivery lifecycle + CANCELLED terminal state with mandatory cancellation reason
-  - Strict dispatch invariants enforced (both `LOADING` and `OUT_FOR_DELIVERY` strictly require supplier, truck, and driver)
-  - Deterministic manual quotation engine with immutable snapshots, revision versioning (`v1`, `v2`), and real gross margin calculation
-  - Third-party partner registries (Suppliers, Partner Fleet Trucks, Decoupled Drivers)
-  - Atomic fulfillment dispatch with independent driver persistence and default-driver auto-assignment as an operational convenience
-  - Historical master data immutability (mutating trucks, default drivers, or supplier rates never alters existing orders or past quotes)
-  - Offline payment recording (`Cash`, `UPI`, `Bank Transfer`, `Cheque`) with automatic status derivation and clean default overpayment rejection
-  - Operational internal notes (`order_notes`) with staff author tracking
-  - Live operational metrics dashboard featuring **Quoted Revenue** (Total Customer Value of confirmed orders; zero mock data; zero invoice confusion)
-  - Order search, status/payment filtering, and pagination
-  - Clean production build (`npm run build`) and 49/49 passing automated tests
+- **Phase 3 Hierarchical Material Catalog & Variants:** ✅ **COMPLETE**
+  - Hierarchical catalog architecture: `CATEGORY → SUBTYPE / VARIANT → SPECIFICATION → QUANTITY → QUOTE REQUEST`
+  - 4 Core MVP Categories: Sand, Bricks, Black Stone / Aggregate, Murum
+  - 11 Regional Civil Subtypes seeded with engineering-standard specification schemas
+  - Dynamic specification rendering on customer quote request forms
+  - Historical snapshots preserved on `orders` (`category_name_snapshot`, `variant_name_snapshot`, `specifications_snapshot`)
+  - Indicative price isolation: catalog prices are strictly indicative benchmarks; delivered prices remain calculated via Phase 2 manual quotation engine
+  - Backwards-compatible quote request handling for legacy flat material IDs
+  - Admin catalog management portal (`/admin/catalog`) for managing categories, variants, indicative rates, min quantities, and dynamic specification schemas
+  - Order management queues (`/admin/orders`, `/admin/orders/:id`) display variant snapshots, category tags, and specification breakdowns with category filtering
+  - Clean production builds (`npm run build:backend` and `npm run build:frontend`) and 65/65 passing automated tests
 - **Full MVP:** 🟢 **CORE DELIVERABLE COMPLETE & VERIFIED**
 
-### Phase 2 & 2.1 Verification Checklist
-- [x] Primary delivery lifecycle (10 stages) + CANCELLED terminal state implemented with strict transition guards
-- [x] State transition invariants enforced (requires quotation for `QUOTATION_SENT`/`CONFIRMED`, strictly requires supplier + truck + driver for `LOADING`/`OUT_FOR_DELIVERY`, requires reason for `CANCELLED`)
-- [x] Negative transition paths explicitly verified (`NEW` → `DELIVERED` ❌, `NEW` → `COMPLETED` ❌, `COMPLETED` → `NEW` ❌, `DELIVERED` → `CONFIRMED` ❌)
-- [x] Quotation calculation is deterministic (`base_cost = material + transport + loading`; `final_price = base + fee - discount`; `margin = final - base`)
-- [x] Quotation revisions increment version number (`v1`, `v2`) and preserve historical snapshots
-- [x] Internal quotation validity date is optional and defaulted gracefully
-- [x] Partner suppliers, trucks, and decoupled drivers independently managed
-- [x] Atomic fulfillment dispatch with driver assignment; historical immutability verified against future truck driver changes
-- [x] Offline payments recorded with automatic status derivation (`Pending`, `Partially Paid`, `Paid`, `Refunded`)
-- [x] Overpayment rejected by default without undefined override backdoors
-- [x] Operational internal notes recorded with author attribution and timestamps
-- [x] Admin dashboard displays live calculated operational metrics; revenue labeled **Quoted Revenue**
-- [x] Orders management screen supports text search, multi-status filters, and pagination
-- [x] Order detail page functions as central operational cockpit
-- [x] 49/49 automated tests passing across backend test suites
+### Phase 3 Verification Checklist
+- [x] 4 initial categories (`Sand`, `Bricks`, `Black Stone / Aggregate`, `Murum`) seeded and active
+- [x] 11 regional civil subtypes seeded with dynamic specification schemas and standard billing units
+- [x] Specification validation schema enforces required fields and allowed options
+- [x] Real-time minimum order quantity and billing unit validation enforced
+- [x] Orders store immutable historical snapshots (`category_name_snapshot`, `variant_name_snapshot`, `specifications_snapshot`)
+- [x] Catalog price updates or subtype changes never alter existing historical order records
+- [x] Indicative rates clearly disclaimed; Phase 2 manual quotation calculation ($Delivered = Material + Transport + Platform Fee - Discount$) preserved
+- [x] Rich WhatsApp prefill URLs include reference, variant name, category, and key-value technical specifications
+- [x] Customer browsing hierarchy implemented: `/products` → `/products/:categorySlug` → `/products/:categorySlug/:variantSlug` → `/get-quote`
+- [x] Admin catalog management page (`/admin/catalog`) allows viewing, toggling active states, editing indicative rates, and updating schemas
+- [x] Collision-resistant order reference generation prevents database unique constraint conflicts
+- [x] 65/65 automated tests passing across all test suites
+- [x] Zero regressions on Phase 0, Phase 1, or Phase 2 functionality
 - [x] Out-of-scope boundaries strictly respected (no online payment gateways, no customer accounts, no driver apps, no live GPS tracking, no automated dynamic pricing)
 

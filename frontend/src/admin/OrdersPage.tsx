@@ -1,26 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { adminService, OrderListParams } from '../services/adminService.js';
-import { Order } from '../types/index.js';
+import { catalogService } from '../services/catalogService.js';
+import { Order, ProductCategory } from '../types/index.js';
 import { Badge } from '../components/Badge.js';
 import { LoadingSpinner } from '../components/LoadingSpinner.js';
 import { EmptyState } from '../components/EmptyState.js';
 import { formatDate } from '../utils/formatters.js';
-import { Search, Filter, RotateCcw, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, RotateCcw, ArrowRight, ChevronLeft, ChevronRight, Sliders } from 'lucide-react';
 
 export const OrdersPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialStatus = searchParams.get('status') || '';
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>(initialStatus);
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [page, setPage] = useState(1);
   const limit = 25;
+
+  useEffect(() => {
+    catalogService.getCategories().then((cats) => setCategories(cats)).catch(() => {});
+  }, []);
 
   const fetchOrders = () => {
     setLoading(true);
@@ -29,6 +36,7 @@ export const OrdersPage: React.FC = () => {
       offset: (page - 1) * limit,
       status: selectedStatus || undefined,
       payment_status: selectedPaymentStatus || undefined,
+      category_id: selectedCategory || undefined,
       search: search.trim() || undefined,
     };
 
@@ -44,7 +52,7 @@ export const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [selectedStatus, selectedPaymentStatus, page]);
+  }, [selectedStatus, selectedPaymentStatus, selectedCategory, page]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +64,7 @@ export const OrdersPage: React.FC = () => {
     setSearch('');
     setSelectedStatus('');
     setSelectedPaymentStatus('');
+    setSelectedCategory('');
     setPage(1);
     setSearchParams({});
   };
@@ -89,6 +98,24 @@ export const OrdersPage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Category Filter */}
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Lifecycle Status Filter */}
             <select
               value={selectedStatus}
               onChange={(e) => {
@@ -116,6 +143,7 @@ export const OrdersPage: React.FC = () => {
               <option value="CANCELLED">CANCELLED</option>
             </select>
 
+            {/* Payment Filter */}
             <select
               value={selectedPaymentStatus}
               onChange={(e) => {
@@ -138,7 +166,7 @@ export const OrdersPage: React.FC = () => {
               Filter
             </button>
 
-            {(search || selectedStatus || selectedPaymentStatus) && (
+            {(search || selectedStatus || selectedPaymentStatus || selectedCategory) && (
               <button
                 type="button"
                 onClick={handleResetFilters}
@@ -168,7 +196,7 @@ export const OrdersPage: React.FC = () => {
                 <tr>
                   <th className="py-3.5 px-4">Reference</th>
                   <th className="py-3.5 px-4">Customer</th>
-                  <th className="py-3.5 px-4">Material / Quantity</th>
+                  <th className="py-3.5 px-4">Material / Subtype</th>
                   <th className="py-3.5 px-4">Delivery Site</th>
                   <th className="py-3.5 px-4">Preferred Date</th>
                   <th className="py-3.5 px-4">Delivery Stage</th>
@@ -177,57 +205,93 @@ export const OrdersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {orders.map((ord) => (
-                  <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                      {ord.order_reference}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold block">{ord.customer_name || 'Customer'}</span>
-                      <span className="text-[11px] text-slate-400 font-mono">{ord.customer_mobile || '—'}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-slate-900">
-                        {ord.quantity} {ord.unit}
-                      </span>
-                      <span className="text-[11px] text-slate-500 block">{ord.product_name}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-medium text-slate-800 block truncate max-w-xs">
-                        {ord.delivery_address}
-                      </span>
-                      <span className="text-[11px] text-slate-400">Pincode: {ord.area_pincode}</span>
-                    </td>
-                    <td className="py-3.5 px-4">{formatDate(ord.preferred_delivery_date)}</td>
-                    <td className="py-3.5 px-4">
-                      <Badge status={ord.status} />
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                          ord.payment_status === 'Paid'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : ord.payment_status === 'Partially Paid'
-                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : ord.payment_status === 'Refunded'
-                            ? 'bg-purple-50 text-purple-800 border-purple-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
-                      >
-                        {ord.payment_status || 'Pending'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        to={`/admin/orders/${ord.id}`}
-                        className="inline-flex items-center gap-1 font-semibold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200 transition-colors"
-                      >
-                        <span>Manage</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {orders.map((ord) => {
+                  let parsedSpecs: Record<string, string> = {};
+                  try {
+                    const specsRaw = ord.specifications_snapshot || ord.specifications;
+                    if (specsRaw) {
+                      parsedSpecs = typeof specsRaw === 'string' ? JSON.parse(specsRaw) : specsRaw;
+                    }
+                  } catch {}
+
+                  const variantName =
+                    ord.variant_name_snapshot || ord.variant_name || ord.product_name;
+                  const categoryName =
+                    ord.category_name_snapshot || ord.category_name;
+
+                  return (
+                    <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                        {ord.order_reference}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold block">{ord.customer_name || 'Customer'}</span>
+                        <span className="text-[11px] text-slate-400 font-mono">{ord.customer_mobile || '—'}</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-slate-900">
+                          {ord.quantity} {ord.unit} — {variantName}
+                        </div>
+                        {categoryName && (
+                          <span className="inline-flex text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mt-0.5">
+                            {categoryName}
+                          </span>
+                        )}
+                        {Object.keys(parsedSpecs).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(parsedSpecs).slice(0, 2).map(([k, v]) => (
+                              <span
+                                key={k}
+                                className="inline-flex items-center text-[10px] bg-amber-50 text-amber-800 border border-amber-200 rounded px-1.5 py-0.2"
+                              >
+                                {v}
+                              </span>
+                            ))}
+                            {Object.keys(parsedSpecs).length > 2 && (
+                              <span className="text-[10px] text-slate-400">
+                                +{Object.keys(parsedSpecs).length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-medium text-slate-800 block truncate max-w-xs">
+                          {ord.delivery_address}
+                        </span>
+                        <span className="text-[11px] text-slate-400">Pincode: {ord.area_pincode}</span>
+                      </td>
+                      <td className="py-3.5 px-4">{formatDate(ord.preferred_delivery_date)}</td>
+                      <td className="py-3.5 px-4">
+                        <Badge status={ord.status} />
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                            ord.payment_status === 'Paid'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : ord.payment_status === 'Partially Paid'
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : ord.payment_status === 'Refunded'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          {ord.payment_status || 'Pending'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <Link
+                          to={`/admin/orders/${ord.id}`}
+                          className="inline-flex items-center gap-1 font-semibold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200 transition-colors"
+                        >
+                          <span>Manage</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

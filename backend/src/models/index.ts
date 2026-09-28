@@ -31,6 +31,58 @@ export interface Product {
   updated_at: string;
 }
 
+// -------------------------------------------------------------
+// Phase 3 Hierarchical Catalog (Category -> Variant -> Specs)
+// -------------------------------------------------------------
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image_url?: string | null;
+  is_active: number;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+  // Joined or nested in responses
+  variants?: ProductVariant[];
+}
+
+export interface SpecificationFieldSchema {
+  key: string;
+  label: string;
+  type: 'select' | 'text' | 'number';
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
+  helper_text?: string;
+  help_text?: string;
+  default_value?: string;
+  unit?: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  short_description: string;
+  detailed_description?: string | null;
+  image_url?: string | null;
+  unit: string;
+  min_quantity: number;
+  indicative_price?: number | null;
+  specifications_schema: string; // JSON string of SpecificationFieldSchema[]
+  is_active: number;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+  // Parsed helper or joined fields
+  category_name?: string;
+  category_slug?: string;
+  parsed_specifications?: SpecificationFieldSchema[];
+}
+
 export interface Customer {
   id: string;
   full_name: string;
@@ -128,6 +180,16 @@ export interface Order {
   current_quotation_id?: string | null;
   payment_status: PaymentStatus;
   qr_campaign_id?: string | null;
+  // Phase 3 Hierarchical Catalog Fields & Immutability Snapshots
+  category_id?: string | null;
+  variant_id?: string | null;
+  specifications?: string | null; // JSON string of selected specs { [key: string]: string }
+  category_name_snapshot?: string | null;
+  variant_name_snapshot?: string | null;
+  specifications_snapshot?: string | null;
+  // Joined or helper fields
+  category_name?: string;
+  variant_name?: string;
   created_at: string;
   updated_at: string;
 }
