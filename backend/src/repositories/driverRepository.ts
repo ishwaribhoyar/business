@@ -1,24 +1,15 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { Driver } from '../models/index.js';
 
 export class DriverRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
-  }
-
-  create(driver: Driver): void {
-    const stmt = this.db.prepare(`
+  create(driver: Driver): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO drivers (
         id, full_name, mobile_number, license_number,
         verification_status, availability_status, notes,
         is_active, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       driver.id,
       driver.full_name,
       driver.mobile_number,
@@ -28,12 +19,51 @@ export class DriverRepository {
       driver.notes ?? null,
       driver.is_active,
       driver.created_at,
-      driver.updated_at
-    );
+      driver.updated_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  update(id: string, updates: Partial<Driver>): Driver | null {
-    const existing = this.findById(id);
+  update(id: string, updates: Partial<Driver>): Promise<Driver | null> | (Driver | null) {
+    if (dbAdapter.isPostgres) {
+      return (async () => {
+        const existing = await this.findById(id);
+        if (!existing) return null;
+
+        const merged: Driver = {
+          ...existing,
+          ...updates,
+          updated_at: new Date().toISOString(),
+        };
+
+        await dbAdapter.run(`
+          UPDATE drivers SET
+            full_name = ?,
+            mobile_number = ?,
+            license_number = ?,
+            verification_status = ?,
+            availability_status = ?,
+            notes = ?,
+            is_active = ?,
+            updated_at = ?
+          WHERE id = ?
+        `, [
+          merged.full_name,
+          merged.mobile_number,
+          merged.license_number ?? null,
+          merged.verification_status,
+          merged.availability_status,
+          merged.notes ?? null,
+          merged.is_active,
+          merged.updated_at,
+          id,
+        ]);
+
+        return merged;
+      })();
+    }
+
+    const existing = this.findById(id) as Driver | null;
     if (!existing) return null;
 
     const merged: Driver = {
@@ -42,7 +72,7 @@ export class DriverRepository {
       updated_at: new Date().toISOString(),
     };
 
-    const stmt = this.db.prepare(`
+    dbAdapter.run(`
       UPDATE drivers SET
         full_name = ?,
         mobile_number = ?,
@@ -53,9 +83,7 @@ export class DriverRepository {
         is_active = ?,
         updated_at = ?
       WHERE id = ?
-    `);
-
-    stmt.run(
+    `, [
       merged.full_name,
       merged.mobile_number,
       merged.license_number ?? null,
@@ -64,31 +92,26 @@ export class DriverRepository {
       merged.notes ?? null,
       merged.is_active,
       merged.updated_at,
-      id
-    );
+      id,
+    ]);
 
     return merged;
   }
 
-  findAll(options: { activeOnly?: boolean } = {}): Driver[] {
+  findAll(options: { activeOnly?: boolean } = {}): Promise<Driver[]> | Driver[] {
     let query = 'SELECT * FROM drivers';
     if (options.activeOnly) {
       query += ' WHERE is_active = 1';
     }
     query += ' ORDER BY created_at DESC';
-    const stmt = this.db.prepare(query);
-    return (stmt.all() as unknown as Driver[]) || [];
+    return dbAdapter.all<Driver>(query);
   }
 
-  findById(id: string): Driver | null {
-    const stmt = this.db.prepare('SELECT * FROM drivers WHERE id = ?');
-    const result = stmt.get(id);
-    return (result as unknown as Driver) || null;
+  findById(id: string): Promise<Driver | null> | (Driver | null) {
+    return dbAdapter.get<Driver>('SELECT * FROM drivers WHERE id = ?', [id]);
   }
 
-  findByMobile(mobileNumber: string): Driver | null {
-    const stmt = this.db.prepare('SELECT * FROM drivers WHERE mobile_number = ?');
-    const result = stmt.get(mobileNumber);
-    return (result as unknown as Driver) || null;
+  findByMobile(mobileNumber: string): Promise<Driver | null> | (Driver | null) {
+    return dbAdapter.get<Driver>('SELECT * FROM drivers WHERE mobile_number = ?', [mobileNumber]);
   }
 }

@@ -3,7 +3,7 @@ import { QuotationRepository } from '../repositories/quotationRepository.js';
 import { AuditService } from '../services/auditService.js';
 import { Order, OrderStatus, OrderStatusHistory } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 
 export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   NEW: ['CONTACTED', 'CANCELLED'],
@@ -44,10 +44,10 @@ export class OrderStatusService {
     this.auditService = auditService;
   }
 
-  transitionStatus(context: StatusTransitionContext): { order: Order; history: OrderStatusHistory } {
+  async transitionStatus(context: StatusTransitionContext): Promise<{ order: Order; history: OrderStatusHistory }> {
     const { orderId, targetStatus, cancellationReason, notes, userId, userName, ipAddress } = context;
 
-    const order = this.orderRepo.findById(orderId);
+    const order = await this.orderRepo.findById(orderId);
     if (!order) {
       throw new NotFoundError(`Order with ID '${orderId}'`);
     }
@@ -81,7 +81,7 @@ export class OrderStatusService {
 
     // 4. Invariants for Quotation States
     if (targetStatus === 'QUOTATION_SENT' || targetStatus === 'CONFIRMED') {
-      const activeQuotes = this.quotationRepo.findByOrderId(order.id);
+      const activeQuotes = await this.quotationRepo.findByOrderId(order.id);
       if (!order.current_quotation_id && activeQuotes.length === 0) {
         throw new ValidationError(
           `Cannot transition order to '${targetStatus}' without an issued delivered quotation. Please calculate and save a quotation first.`
@@ -104,11 +104,9 @@ export class OrderStatusService {
 
     // 6. Execute transition atomically
     const now = new Date().toISOString();
-    const db = getDatabase();
 
-    db.exec('BEGIN IMMEDIATE;');
-    try {
-      this.orderRepo.updateStatus(order.id, targetStatus, cancellationReason ?? null);
+    return dbAdapter.transaction(async () => {
+      await this.orderRepo.updateStatus(order.id, targetStatus, cancellationReason ?? null);
 
       const historyId = `osh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const historyRecord: OrderStatusHistory = {
@@ -120,9 +118,9 @@ export class OrderStatusService {
         notes: notes || (targetStatus === 'CANCELLED' ? `Reason: ${cancellationReason}` : null),
         created_at: now,
       };
-      this.orderRepo.recordStatusHistory(historyRecord);
+      await this.orderRepo.recordStatusHistory(historyRecord);
 
-      this.auditService.recordAction({
+      await this.auditService.recordAction({
         userId,
         action: targetStatus === 'CANCELLED' ? 'ORDER_CANCELLED' : 'ORDER_STATUS_CHANGED',
         entityType: 'ORDER',
@@ -136,17 +134,8 @@ export class OrderStatusService {
         ipAddress,
       });
 
-      db.exec('COMMIT;');
-
-      const updatedOrder = this.orderRepo.findById(order.id)!;
+      const updatedOrder = (await this.orderRepo.findById(order.id))!;
       return { order: updatedOrder, history: historyRecord };
-    } catch (error) {
-      try {
-        db.exec('ROLLBACK;');
-      } catch {
-        // Rollback safety
-      }
-      throw error;
-    }
+    });
   }
 }

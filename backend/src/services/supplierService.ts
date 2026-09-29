@@ -25,7 +25,7 @@ export class SupplierService {
     this.auditService = auditService;
   }
 
-  createSupplier(input: CreateSupplierInput, adminId: string, adminName: string): Supplier {
+  async createSupplier(input: CreateSupplierInput, adminId: string, adminName: string): Promise<Supplier> {
     if (!input.business_name || input.business_name.trim().length < 2) {
       throw new ValidationError('Supplier business name must be at least 2 characters.');
     }
@@ -57,9 +57,9 @@ export class SupplierService {
       updated_at: now,
     };
 
-    this.supplierRepo.create(supplier);
+    await this.supplierRepo.create(supplier);
 
-    this.auditService.recordAction({
+    await this.auditService.recordAction({
       userId: adminId,
       action: 'SUPPLIER_CREATED',
       entityType: 'SUPPLIER',
@@ -70,8 +70,8 @@ export class SupplierService {
     return supplier;
   }
 
-  updateSupplier(id: string, updates: Partial<Supplier>, adminId: string, adminName: string): Supplier {
-    const existing = this.supplierRepo.findById(id);
+  async updateSupplier(id: string, updates: Partial<Supplier>, adminId: string, adminName: string): Promise<Supplier> {
+    const existing = await this.supplierRepo.findById(id);
     if (!existing) {
       throw new NotFoundError(`Supplier '${id}'`);
     }
@@ -81,12 +81,12 @@ export class SupplierService {
       updates.price_updated_at = new Date().toISOString();
     }
 
-    const updated = this.supplierRepo.update(id, updates);
+    const updated = await this.supplierRepo.update(id, updates);
     if (!updated) {
       throw new NotFoundError(`Supplier '${id}'`);
     }
 
-    this.auditService.recordAction({
+    await this.auditService.recordAction({
       userId: adminId,
       action: 'SUPPLIER_UPDATED',
       entityType: 'SUPPLIER',
@@ -97,11 +97,11 @@ export class SupplierService {
     return updated;
   }
 
-  getAllSuppliers(activeOnly = false): Supplier[] {
-    return this.supplierRepo.findAll({ activeOnly });
+  async getAllSuppliers(activeOnly = false): Promise<Supplier[]> {
+    return (await this.supplierRepo.findAll({ activeOnly })) as Supplier[];
   }
 
-  getSupplierById(id: string): Supplier | null {
-    return this.supplierRepo.findById(id);
+  async getSupplierById(id: string): Promise<Supplier | null> {
+    return (await this.supplierRepo.findById(id)) as Supplier | null;
   }
 }

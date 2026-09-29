@@ -13,18 +13,18 @@ declare global {
 
 const authService = new AuthService();
 
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new AuthenticationError('Authorization token required');
+    return next(new AuthenticationError('Authorization token required'));
   }
 
   const token = authHeader.split(' ')[1];
   try {
     const payload = authService.verifyToken(token);
-    const user = authService.getUserById(payload.userId);
-    if (!user || user.is_active === 0) {
-      throw new AuthenticationError('User account not found or deactivated');
+    const user = await authService.getUserById(payload.userId);
+    if (!user || user.is_active === 0 || (user.is_active as any) === false) {
+      return next(new AuthenticationError('User account not found or deactivated'));
     }
 
     req.user = user;

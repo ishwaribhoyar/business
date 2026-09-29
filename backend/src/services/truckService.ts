@@ -32,7 +32,7 @@ export class TruckService {
     this.auditService = auditService;
   }
 
-  createTruck(input: CreateTruckInput, adminId: string, adminName: string): Truck {
+  async createTruck(input: CreateTruckInput, adminId: string, adminName: string): Promise<Truck> {
     if (!input.registration_number || input.registration_number.trim().length < 4) {
       throw new ValidationError('A valid truck registration number is required (e.g. MH-31-AP-1234).');
     }
@@ -47,7 +47,7 @@ export class TruckService {
     }
 
     if (input.default_driver_id) {
-      const driver = this.driverRepo.findById(input.default_driver_id);
+      const driver = await this.driverRepo.findById(input.default_driver_id);
       if (!driver) {
         throw new NotFoundError(`Default driver '${input.default_driver_id}'`);
       }
@@ -73,9 +73,9 @@ export class TruckService {
       updated_at: now,
     };
 
-    this.truckRepo.create(truck);
+    await this.truckRepo.create(truck);
 
-    this.auditService.recordAction({
+    await this.auditService.recordAction({
       userId: adminId,
       action: 'TRUCK_CREATED',
       entityType: 'TRUCK',
@@ -86,18 +86,18 @@ export class TruckService {
     return truck;
   }
 
-  updateTruck(id: string, updates: Partial<Truck>, adminId: string, adminName: string): Truck {
-    const existing = this.truckRepo.findById(id);
+  async updateTruck(id: string, updates: Partial<Truck>, adminId: string, adminName: string): Promise<Truck> {
+    const existing = await this.truckRepo.findById(id);
     if (!existing) {
       throw new NotFoundError(`Truck '${id}'`);
     }
 
-    const updated = this.truckRepo.update(id, updates);
+    const updated = await this.truckRepo.update(id, updates);
     if (!updated) {
       throw new NotFoundError(`Truck '${id}'`);
     }
 
-    this.auditService.recordAction({
+    await this.auditService.recordAction({
       userId: adminId,
       action: 'TRUCK_UPDATED',
       entityType: 'TRUCK',
@@ -108,11 +108,11 @@ export class TruckService {
     return updated;
   }
 
-  getAllTrucks(activeOnly = false): TruckWithDriver[] {
-    return this.truckRepo.findAll({ activeOnly });
+  async getAllTrucks(activeOnly = false): Promise<TruckWithDriver[]> {
+    return (await this.truckRepo.findAll({ activeOnly })) as TruckWithDriver[];
   }
 
-  getTruckById(id: string): Truck | null {
-    return this.truckRepo.findById(id);
+  async getTruckById(id: string): Promise<Truck | null> {
+    return (await this.truckRepo.findById(id)) as Truck | null;
   }
 }

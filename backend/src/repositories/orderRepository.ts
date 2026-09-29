@@ -1,5 +1,4 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { Order, OrderStatus, OrderStatusHistory, OrderNote, PaymentStatus } from '../models/index.js';
 
 export interface OrderFilterOptions {
@@ -15,15 +14,33 @@ export interface OrderFilterOptions {
   sortOrder?: 'ASC' | 'DESC';
 }
 
+export type OrderListResult = {
+  orders: (Order & {
+    customer_name?: string;
+    customer_mobile?: string;
+    product_name?: string;
+    category_name?: string;
+    variant_name?: string;
+    quoted_price?: number;
+    quotation_version?: number;
+  })[];
+  total: number;
+};
+
+export type DashboardMetricsResult = {
+  totalOrders: number;
+  newOrders: number;
+  activeDeliveries: number;
+  completedOrders: number;
+  totalRevenue: number;
+  totalDirectCosts: number;
+  grossMargin: number;
+  ordersByStatus: Record<string, number>;
+};
+
 export class OrderRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
-  }
-
-  create(order: Order): void {
-    const stmt = this.db.prepare(`
+  create(order: Order): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO orders (
         id, order_reference, customer_id, product_id, quantity, unit,
         delivery_address, area_pincode, preferred_delivery_date, additional_notes,
@@ -33,9 +50,7 @@ export class OrderRepository {
         category_name_snapshot, variant_name_snapshot, specifications_snapshot,
         created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       order.id,
       order.order_reference,
       order.customer_id,
@@ -56,17 +71,18 @@ export class OrderRepository {
       order.qr_campaign_id ?? null,
       order.category_id ?? null,
       order.variant_id ?? null,
-      order.specifications ?? null,
+      typeof order.specifications === 'object' && order.specifications !== null ? JSON.stringify(order.specifications) : (order.specifications ?? null),
       order.category_name_snapshot ?? null,
       order.variant_name_snapshot ?? null,
-      order.specifications_snapshot ?? null,
+      typeof order.specifications_snapshot === 'object' && order.specifications_snapshot !== null ? JSON.stringify(order.specifications_snapshot) : (order.specifications_snapshot ?? null),
       order.created_at,
-      order.updated_at
-    );
+      order.updated_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  findById(id: string): Order | null {
-    const stmt = this.db.prepare(`
+  findById(id: string): Promise<Order | null> | (Order | null) {
+    const query = `
       SELECT o.*,
              COALESCE(o.category_name_snapshot, cat.name, p.name) as category_name,
              COALESCE(o.variant_name_snapshot, v.name) as variant_name
@@ -75,13 +91,12 @@ export class OrderRepository {
       LEFT JOIN product_categories cat ON o.category_id = cat.id
       LEFT JOIN product_variants v ON o.variant_id = v.id
       WHERE o.id = ?
-    `);
-    const result = stmt.get(id);
-    return (result as unknown as Order) || null;
+    `;
+    return dbAdapter.get<Order>(query, [id]);
   }
 
-  findByReference(reference: string): Order | null {
-    const stmt = this.db.prepare(`
+  findByReference(reference: string): Promise<Order | null> | (Order | null) {
+    const query = `
       SELECT o.*,
              COALESCE(o.category_name_snapshot, cat.name, p.name) as category_name,
              COALESCE(o.variant_name_snapshot, v.name) as variant_name
@@ -90,9 +105,8 @@ export class OrderRepository {
       LEFT JOIN product_categories cat ON o.category_id = cat.id
       LEFT JOIN product_variants v ON o.variant_id = v.id
       WHERE o.order_reference = ?
-    `);
-    const result = stmt.get(reference);
-    return (result as unknown as Order) || null;
+    `;
+    return dbAdapter.get<Order>(query, [reference]);
   }
 
   findRecentDuplicate(
@@ -101,104 +115,127 @@ export class OrderRepository {
     quantity: number,
     deliveryAddress: string,
     windowSeconds = 60
-  ): Order | null {
-    const stmt = this.db.prepare(`
+  ): Promise<Order | null> | (Order | null) {
+    const query = `
       SELECT * FROM orders
       WHERE customer_id = ? AND product_id = ? AND quantity = ? AND delivery_address = ? AND status = 'NEW'
       ORDER BY created_at DESC LIMIT 1
-    `);
-    const order = stmt.get(customerId, productId, quantity, deliveryAddress) as unknown as Order | undefined;
-    if (!order) return null;
-
-    const createdTime = new Date(order.created_at).getTime();
-    if (!isNaN(createdTime) && (Date.now() - createdTime) <= windowSeconds * 1000) {
-      return order;
+    `;
+    const res = dbAdapter.get<Order>(query, [customerId, productId, quantity, deliveryAddress]);
+    const checkDuplicate = (order: Order | null) => {
+      if (!order) return null;
+      const createdTime = new Date(order.created_at).getTime();
+      if (!isNaN(createdTime) && (Date.now() - createdTime) <= windowSeconds * 1000) {
+        return order;
+      }
+      return null;
+    };
+    if (res instanceof Promise) {
+      return res.then(checkDuplicate);
     }
-    return null;
+    return checkDuplicate(res);
   }
 
-  updateStatus(id: string, status: OrderStatus, cancellationReason?: string | null): void {
+  updateStatus(id: string, status: OrderStatus, cancellationReason?: string | null): Promise<void> | void {
     const now = new Date().toISOString();
-    const stmt = this.db.prepare('UPDATE orders SET status = ?, cancellation_reason = ?, updated_at = ? WHERE id = ?');
-    stmt.run(status, cancellationReason ?? null, now, id);
+    const res = dbAdapter.run(
+      'UPDATE orders SET status = ?, cancellation_reason = ?, updated_at = ? WHERE id = ?',
+      [status, cancellationReason ?? null, now, id]
+    );
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  updateCurrentQuotation(orderId: string, quotationId: string): void {
+  updateCurrentQuotation(orderId: string, quotationId: string): Promise<void> | void {
     const now = new Date().toISOString();
-    const stmt = this.db.prepare('UPDATE orders SET current_quotation_id = ?, updated_at = ? WHERE id = ?');
-    stmt.run(quotationId, now, orderId);
+    const res = dbAdapter.run(
+      'UPDATE orders SET current_quotation_id = ?, updated_at = ? WHERE id = ?',
+      [quotationId, now, orderId]
+    );
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  updateSupplier(orderId: string, supplierId: string | null): void {
+  updateSupplier(orderId: string, supplierId: string | null): Promise<void> | void {
     const now = new Date().toISOString();
-    const stmt = this.db.prepare('UPDATE orders SET supplier_id = ?, updated_at = ? WHERE id = ?');
-    stmt.run(supplierId, now, orderId);
+    const res = dbAdapter.run(
+      'UPDATE orders SET supplier_id = ?, updated_at = ? WHERE id = ?',
+      [supplierId, now, orderId]
+    );
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  updateTruck(orderId: string, truckId: string | null): void {
+  updateTruck(orderId: string, truckId: string | null): Promise<void> | void {
     const now = new Date().toISOString();
-    const stmt = this.db.prepare('UPDATE orders SET truck_id = ?, updated_at = ? WHERE id = ?');
-    stmt.run(truckId, now, orderId);
+    const res = dbAdapter.run(
+      'UPDATE orders SET truck_id = ?, updated_at = ? WHERE id = ?',
+      [truckId, now, orderId]
+    );
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  updateDriver(orderId: string, driverId: string | null): void {
+  updateDriver(orderId: string, driverId: string | null): Promise<void> | void {
     const now = new Date().toISOString();
-    const stmt = this.db.prepare('UPDATE orders SET driver_id = ?, updated_at = ? WHERE id = ?');
-    stmt.run(driverId, now, orderId);
+    const res = dbAdapter.run(
+      'UPDATE orders SET driver_id = ?, updated_at = ? WHERE id = ?',
+      [driverId, now, orderId]
+    );
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus): void {
+  updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus): Promise<void> | void {
     const now = new Date().toISOString();
-    const stmt = this.db.prepare('UPDATE orders SET payment_status = ?, updated_at = ? WHERE id = ?');
-    stmt.run(paymentStatus, now, orderId);
+    const res = dbAdapter.run(
+      'UPDATE orders SET payment_status = ?, updated_at = ? WHERE id = ?',
+      [paymentStatus, now, orderId]
+    );
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  recordStatusHistory(history: OrderStatusHistory): void {
-    const stmt = this.db.prepare(`
+  recordStatusHistory(history: OrderStatusHistory): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO order_status_history (id, order_id, previous_status, new_status, changed_by_user_id, notes, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
+    `, [
       history.id,
       history.order_id,
       history.previous_status ?? null,
       history.new_status,
       history.changed_by_user_id ?? null,
       history.notes ?? null,
-      history.created_at
+      history.created_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
+  }
+
+  getStatusHistory(orderId: string): Promise<OrderStatusHistory[]> | OrderStatusHistory[] {
+    return dbAdapter.all<OrderStatusHistory>(
+      'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC',
+      [orderId]
     );
   }
 
-  getStatusHistory(orderId: string): OrderStatusHistory[] {
-    const stmt = this.db.prepare('SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC');
-    return (stmt.all(orderId) as unknown as OrderStatusHistory[]) || [];
-  }
-
-  addNote(note: OrderNote): void {
-    const stmt = this.db.prepare(`
+  addNote(note: OrderNote): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO order_notes (id, order_id, author_id, author_name, note, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(note.id, note.order_id, note.author_id ?? null, note.author_name, note.note, note.created_at);
+    `, [
+      note.id,
+      note.order_id,
+      note.author_id ?? null,
+      note.author_name,
+      note.note,
+      note.created_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  getNotes(orderId: string): OrderNote[] {
-    const stmt = this.db.prepare('SELECT * FROM order_notes WHERE order_id = ? ORDER BY created_at DESC');
-    return (stmt.all(orderId) as unknown as OrderNote[]) || [];
+  getNotes(orderId: string): Promise<OrderNote[]> | OrderNote[] {
+    return dbAdapter.all<OrderNote>(
+      'SELECT * FROM order_notes WHERE order_id = ? ORDER BY created_at DESC',
+      [orderId]
+    );
   }
 
-  findAll(options: OrderFilterOptions = {}): {
-    orders: (Order & {
-      customer_name?: string;
-      customer_mobile?: string;
-      product_name?: string;
-      category_name?: string;
-      variant_name?: string;
-      quoted_price?: number;
-      quotation_version?: number;
-    })[];
-    total: number;
-  } {
+  findAll(options: OrderFilterOptions = {}): Promise<OrderListResult> | OrderListResult {
     const limit = options.limit ?? 50;
     const offset = options.offset ?? 0;
     const sortBy = options.sortBy ?? 'created_at';
@@ -284,72 +321,70 @@ export class OrderRepository {
     baseQuery += ` ORDER BY o.${safeSortCol} ${sortOrder} LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
-    const countStmt = this.db.prepare(countQuery);
-    const countResult = countStmt.get(...countParams) as { total: number };
+    const countRes = dbAdapter.get<{ total: number | string }>(countQuery, countParams);
+    const ordersRes = dbAdapter.all<any>(baseQuery, params);
 
-    const stmt = this.db.prepare(baseQuery);
-    const orders = stmt.all(...params) as unknown as (Order & {
-      customer_name?: string;
-      customer_mobile?: string;
-      product_name?: string;
-      category_name?: string;
-      variant_name?: string;
-      quoted_price?: number;
-      quotation_version?: number;
-    })[];
+    if (countRes instanceof Promise || ordersRes instanceof Promise) {
+      return Promise.all([countRes, ordersRes]).then(([cR, oR]) => ({
+        orders: (oR || []) as any,
+        total: Number(cR?.total ?? 0),
+      }));
+    }
 
     return {
-      orders,
-      total: countResult.total,
+      orders: (ordersRes || []) as any,
+      total: Number(countRes?.total ?? 0),
     };
   }
 
-  getDashboardMetrics(): {
-    totalOrders: number;
-    newOrders: number;
-    activeDeliveries: number;
-    completedOrders: number;
-    totalRevenue: number;
-    totalDirectCosts: number;
-    grossMargin: number;
-    ordersByStatus: Record<string, number>;
-  } {
-    // Real aggregations from database
-    const statusCountsStmt = this.db.prepare(`
+  getDashboardMetrics(): Promise<DashboardMetricsResult> | DashboardMetricsResult {
+    const statusCountsStmt = `
       SELECT status, COUNT(*) as count FROM orders GROUP BY status
-    `);
-    const statusRows = statusCountsStmt.all() as { status: string; count: number }[];
-    const ordersByStatus: Record<string, number> = {};
-    let totalOrders = 0;
-    for (const row of statusRows) {
-      ordersByStatus[row.status] = row.count;
-      totalOrders += row.count;
-    }
+    `;
+    const statusCountsRes = dbAdapter.all<{ status: string; count: number | string }>(statusCountsStmt);
 
-    // Revenue and direct costs computed from actual issued/active quotations for orders that reached CONFIRMED or later
-    const financialStmt = this.db.prepare(`
+    const financialQuery = `
       SELECT 
         COALESCE(SUM(q.final_delivered_price), 0) as total_revenue,
         COALESCE(SUM(q.material_cost + q.transport_cost + q.loading_cost), 0) as total_direct_costs
       FROM orders o
       JOIN quotations q ON o.current_quotation_id = q.id
       WHERE o.status IN ('CONFIRMED', 'SUPPLIER_ASSIGNED', 'TRUCK_ASSIGNED', 'LOADING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED')
-    `);
-    const financialRow = financialStmt.get() as { total_revenue: number; total_direct_costs: number } | undefined;
+    `;
+    const financialRes = dbAdapter.get<{ total_revenue: number | string; total_direct_costs: number | string }>(financialQuery);
 
-    const totalRevenue = financialRow?.total_revenue ?? 0;
-    const totalDirectCosts = financialRow?.total_direct_costs ?? 0;
-    const grossMargin = totalRevenue - totalDirectCosts;
+    const computeMetrics = (
+      statusRows: { status: string; count: number | string }[],
+      financialRow?: { total_revenue: number | string; total_direct_costs: number | string } | null
+    ): DashboardMetricsResult => {
+      const ordersByStatus: Record<string, number> = {};
+      let totalOrders = 0;
+      for (const row of statusRows || []) {
+        const count = Number(row.count);
+        ordersByStatus[row.status] = count;
+        totalOrders += count;
+      }
 
-    return {
-      totalOrders,
-      newOrders: ordersByStatus['NEW'] || 0,
-      activeDeliveries: (ordersByStatus['OUT_FOR_DELIVERY'] || 0) + (ordersByStatus['LOADING'] || 0),
-      completedOrders: (ordersByStatus['COMPLETED'] || 0) + (ordersByStatus['DELIVERED'] || 0),
-      totalRevenue,
-      totalDirectCosts,
-      grossMargin,
-      ordersByStatus,
+      const totalRevenue = Number(financialRow?.total_revenue ?? 0);
+      const totalDirectCosts = Number(financialRow?.total_direct_costs ?? 0);
+      const grossMargin = totalRevenue - totalDirectCosts;
+
+      return {
+        totalOrders,
+        newOrders: ordersByStatus['NEW'] || 0,
+        activeDeliveries: (ordersByStatus['OUT_FOR_DELIVERY'] || 0) + (ordersByStatus['LOADING'] || 0),
+        completedOrders: (ordersByStatus['COMPLETED'] || 0) + (ordersByStatus['DELIVERED'] || 0),
+        totalRevenue,
+        totalDirectCosts,
+        grossMargin,
+        ordersByStatus,
+      };
     };
+
+    if (statusCountsRes instanceof Promise || financialRes instanceof Promise) {
+      return Promise.all([statusCountsRes, financialRes]).then(([sRows, fRow]) => computeMetrics(sRows, fRow));
+    }
+
+    return computeMetrics(statusCountsRes, financialRes);
   }
 }

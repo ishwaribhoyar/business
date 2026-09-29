@@ -15,47 +15,58 @@ export class CatalogService {
   // ---------------------------------------------------------------------------
   // Public Customer Methods
   // ---------------------------------------------------------------------------
-  getCategories(includeVariants = false): ProductCategory[] {
-    const categories = this.categoryRepo.findAllActive();
+  async getCategories(includeVariants = false): Promise<ProductCategory[]> {
+    const categories = (await this.categoryRepo.findAllActive()) as ProductCategory[];
     if (includeVariants) {
-      return categories.map((cat) => ({
-        ...cat,
-        variants: this.variantRepo.findByCategory(cat.id, true).map((v) => this.attachParsedSpecs(v)),
-      }));
+      const results: ProductCategory[] = [];
+      for (const cat of categories) {
+        const variants = (await this.variantRepo.findByCategory(cat.id, true)) as ProductVariant[];
+        results.push({
+          ...cat,
+          variants: variants.map((v) => this.attachParsedSpecs(v)),
+        });
+      }
+      return results;
     }
     return categories;
   }
 
-  getCategoryBySlug(slug: string): ProductCategory {
-    const category = this.categoryRepo.findBySlug(slug);
+  async getCategoryBySlug(slug: string): Promise<ProductCategory> {
+    const category = (await this.categoryRepo.findBySlug(slug)) as ProductCategory | null;
     if (!category || !category.is_active) {
       throw new NotFoundError(`Material category '${slug}' not found or inactive`);
     }
 
-    const variants = this.variantRepo.findByCategory(category.id, true).map((v) => this.attachParsedSpecs(v));
+    const variants = ((await this.variantRepo.findByCategory(category.id, true)) as ProductVariant[]).map((v) =>
+      this.attachParsedSpecs(v)
+    );
     return {
       ...category,
       variants,
     };
   }
 
-  getVariantsForCategory(categorySlugOrId: string, activeOnly = true): ProductVariant[] {
-    const category = this.categoryRepo.findBySlug(categorySlugOrId) || this.categoryRepo.findById(categorySlugOrId);
+  async getVariantsForCategory(categorySlugOrId: string, activeOnly = true): Promise<ProductVariant[]> {
+    const category =
+      ((await this.categoryRepo.findBySlug(categorySlugOrId)) as ProductCategory | null) ||
+      ((await this.categoryRepo.findById(categorySlugOrId)) as ProductCategory | null);
     if (!category || (activeOnly && !category.is_active)) {
       throw new NotFoundError(`Material category '${categorySlugOrId}' not found or inactive`);
     }
 
-    const variants = this.variantRepo.findByCategory(category.id, activeOnly);
+    const variants = (await this.variantRepo.findByCategory(category.id, activeOnly)) as ProductVariant[];
     return variants.map((v) => this.attachParsedSpecs(v));
   }
 
-  getVariantBySlug(categorySlugOrId: string, variantSlugOrId: string): ProductVariant {
-    const category = this.categoryRepo.findBySlug(categorySlugOrId) || this.categoryRepo.findById(categorySlugOrId);
+  async getVariantBySlug(categorySlugOrId: string, variantSlugOrId: string): Promise<ProductVariant> {
+    const category =
+      ((await this.categoryRepo.findBySlug(categorySlugOrId)) as ProductCategory | null) ||
+      ((await this.categoryRepo.findById(categorySlugOrId)) as ProductCategory | null);
     if (!category || !category.is_active) {
       throw new NotFoundError(`Material category '${categorySlugOrId}' not found or inactive`);
     }
 
-    const variant = this.variantRepo.findBySlug(variantSlugOrId, category.slug);
+    const variant = (await this.variantRepo.findBySlug(variantSlugOrId, category.slug)) as ProductVariant | null;
     if (!variant || !variant.is_active) {
       throw new NotFoundError(`Variant '${variantSlugOrId}' not found or inactive in category '${category.name}'`);
     }
@@ -63,8 +74,8 @@ export class CatalogService {
     return this.attachParsedSpecs(variant);
   }
 
-  getVariantById(variantId: string): ProductVariant {
-    const variant = this.variantRepo.findById(variantId);
+  async getVariantById(variantId: string): Promise<ProductVariant> {
+    const variant = (await this.variantRepo.findById(variantId)) as ProductVariant | null;
     if (!variant) {
       throw new NotFoundError(`Variant with id '${variantId}' not found`);
     }
@@ -148,27 +159,33 @@ export class CatalogService {
   // ---------------------------------------------------------------------------
   // Admin Management Methods
   // ---------------------------------------------------------------------------
-  getAllCategoriesAdmin(): ProductCategory[] {
-    const categories = this.categoryRepo.findAllAdmin();
-    return categories.map((cat) => ({
-      ...cat,
-      variants: this.variantRepo.findByCategory(cat.id, false).map((v) => this.attachParsedSpecs(v)),
-    }));
+  async getAllCategoriesAdmin(): Promise<ProductCategory[]> {
+    const categories = (await this.categoryRepo.findAllAdmin()) as ProductCategory[];
+    const results: ProductCategory[] = [];
+    for (const cat of categories) {
+      const variants = (await this.variantRepo.findByCategory(cat.id, false)) as ProductVariant[];
+      results.push({
+        ...cat,
+        variants: variants.map((v) => this.attachParsedSpecs(v)),
+      });
+    }
+    return results;
   }
 
-  getAllVariantsAdmin(): ProductVariant[] {
-    return this.variantRepo.findAllAdmin().map((v) => this.attachParsedSpecs(v));
+  async getAllVariantsAdmin(): Promise<ProductVariant[]> {
+    const variants = (await this.variantRepo.findAllAdmin()) as ProductVariant[];
+    return variants.map((v) => this.attachParsedSpecs(v));
   }
 
-  createCategory(payload: {
+  async createCategory(payload: {
     name: string;
     slug: string;
     description: string;
     image_url?: string | null;
     display_order?: number;
     is_active?: number;
-  }): ProductCategory {
-    const existing = this.categoryRepo.findBySlug(payload.slug);
+  }): Promise<ProductCategory> {
+    const existing = await this.categoryRepo.findBySlug(payload.slug);
     if (existing) {
       throw new ValidationError(`Category with slug '${payload.slug}' already exists.`);
     }
@@ -187,21 +204,21 @@ export class CatalogService {
       updated_at: now,
     };
 
-    this.categoryRepo.create(category);
+    await this.categoryRepo.create(category);
     return category;
   }
 
-  updateCategory(id: string, updates: Partial<ProductCategory>): ProductCategory {
-    const existing = this.categoryRepo.findById(id);
+  async updateCategory(id: string, updates: Partial<ProductCategory>): Promise<ProductCategory> {
+    const existing = await this.categoryRepo.findById(id);
     if (!existing) {
       throw new NotFoundError(`Category with id '${id}' not found`);
     }
 
-    this.categoryRepo.update(id, updates);
-    return this.categoryRepo.findById(id)!;
+    await this.categoryRepo.update(id, updates);
+    return (await this.categoryRepo.findById(id))!;
   }
 
-  createVariant(payload: {
+  async createVariant(payload: {
     category_id: string;
     name: string;
     slug: string;
@@ -214,13 +231,13 @@ export class CatalogService {
     specifications_schema?: string | SpecificationFieldSchema[];
     display_order?: number;
     is_active?: number;
-  }): ProductVariant {
-    const category = this.categoryRepo.findById(payload.category_id);
+  }): Promise<ProductVariant> {
+    const category = await this.categoryRepo.findById(payload.category_id);
     if (!category) {
       throw new NotFoundError(`Category with id '${payload.category_id}' not found`);
     }
 
-    const existing = this.variantRepo.findBySlug(payload.slug, category.slug);
+    const existing = await this.variantRepo.findBySlug(payload.slug, category.slug);
     if (existing) {
       throw new ValidationError(`Variant with slug '${payload.slug}' already exists in this category.`);
     }
@@ -249,12 +266,13 @@ export class CatalogService {
       updated_at: now,
     };
 
-    this.variantRepo.create(variant);
-    return this.attachParsedSpecs(this.variantRepo.findById(id)!);
+    await this.variantRepo.create(variant);
+    const created = await this.variantRepo.findById(id);
+    return this.attachParsedSpecs(created!);
   }
 
-  updateVariant(id: string, updates: Partial<ProductVariant>): ProductVariant {
-    const existing = this.variantRepo.findById(id);
+  async updateVariant(id: string, updates: Partial<ProductVariant>): Promise<ProductVariant> {
+    const existing = await this.variantRepo.findById(id);
     if (!existing) {
       throw new NotFoundError(`Variant with id '${id}' not found`);
     }
@@ -263,8 +281,9 @@ export class CatalogService {
       updates.specifications_schema = JSON.stringify(updates.specifications_schema);
     }
 
-    this.variantRepo.update(id, updates);
-    return this.attachParsedSpecs(this.variantRepo.findById(id)!);
+    await this.variantRepo.update(id, updates);
+    const updated = await this.variantRepo.findById(id);
+    return this.attachParsedSpecs(updated!);
   }
 
   // ---------------------------------------------------------------------------

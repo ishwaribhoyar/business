@@ -1,25 +1,16 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { Quotation, QuotationStatus } from '../models/index.js';
 
 export class QuotationRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
-  }
-
-  create(quotation: Quotation): void {
-    const stmt = this.db.prepare(`
+  create(quotation: Quotation): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO quotations (
         id, quotation_reference, order_id, version, quotation_status,
         material_cost, transport_cost, loading_cost, platform_fee, discount,
         final_delivered_price, estimated_gross_margin, validity_date, notes,
         created_by_user_id, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       quotation.id,
       quotation.quotation_reference,
       quotation.order_id,
@@ -35,36 +26,43 @@ export class QuotationRepository {
       quotation.validity_date,
       quotation.notes ?? null,
       quotation.created_by_user_id,
-      quotation.created_at
+      quotation.created_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
+  }
+
+  findByOrderId(orderId: string): Promise<Quotation[]> | Quotation[] {
+    return dbAdapter.all<Quotation>(
+      'SELECT * FROM quotations WHERE order_id = ? ORDER BY version DESC, created_at DESC',
+      [orderId]
     );
   }
 
-  findByOrderId(orderId: string): Quotation[] {
-    const stmt = this.db.prepare('SELECT * FROM quotations WHERE order_id = ? ORDER BY version DESC, created_at DESC');
-    return (stmt.all(orderId) as unknown as Quotation[]) || [];
+  findById(id: string): Promise<Quotation | null> | (Quotation | null) {
+    return dbAdapter.get<Quotation>('SELECT * FROM quotations WHERE id = ?', [id]);
   }
 
-  findById(id: string): Quotation | null {
-    const stmt = this.db.prepare('SELECT * FROM quotations WHERE id = ?');
-    const result = stmt.get(id);
-    return (result as unknown as Quotation) || null;
-  }
-
-  getLatestVersion(orderId: string): number {
-    const stmt = this.db.prepare('SELECT COALESCE(MAX(version), 0) as max_version FROM quotations WHERE order_id = ?');
-    const result = stmt.get(orderId) as { max_version: number } | undefined;
-    return result?.max_version ?? 0;
-  }
-
-  updateStatus(id: string, status: QuotationStatus): void {
-    const stmt = this.db.prepare('UPDATE quotations SET quotation_status = ? WHERE id = ?');
-    stmt.run(status, id);
-  }
-
-  markPreviousQuotationsSuperseded(orderId: string): void {
-    const stmt = this.db.prepare(
-      "UPDATE quotations SET quotation_status = 'SUPERSEDED' WHERE order_id = ? AND quotation_status IN ('ISSUED', 'DRAFT')"
+  getLatestVersion(orderId: string): Promise<number> | number {
+    const res = dbAdapter.get<{ max_version: number }>(
+      'SELECT COALESCE(MAX(version), 0) as max_version FROM quotations WHERE order_id = ?',
+      [orderId]
     );
-    stmt.run(orderId);
+    if (res instanceof Promise) {
+      return res.then((r) => r?.max_version ?? 0);
+    }
+    return res?.max_version ?? 0;
+  }
+
+  updateStatus(id: string, status: QuotationStatus): Promise<void> | void {
+    const res = dbAdapter.run('UPDATE quotations SET quotation_status = ? WHERE id = ?', [status, id]);
+    if (res instanceof Promise) return res.then(() => {});
+  }
+
+  markPreviousQuotationsSuperseded(orderId: string): Promise<void> | void {
+    const res = dbAdapter.run(
+      "UPDATE quotations SET quotation_status = 'SUPERSEDED' WHERE order_id = ? AND quotation_status IN ('ISSUED', 'DRAFT')",
+      [orderId]
+    );
+    if (res instanceof Promise) return res.then(() => {});
   }
 }

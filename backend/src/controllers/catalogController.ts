@@ -8,57 +8,57 @@ export class CatalogController {
   // -------------------------------------------------------------
   // Public Customer Catalog Endpoints
   // -------------------------------------------------------------
-  static getCategories(req: Request, res: Response, next: NextFunction): void {
+  static async getCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const includeVariants = req.query.include_variants === 'true';
-      const categories = catalogService.getCategories(includeVariants);
+      const categories = await catalogService.getCategories(includeVariants);
       ResponseFormatter.success(res, categories);
     } catch (error) {
       next(error);
     }
   }
 
-  static getCategoryBySlug(req: Request, res: Response, next: NextFunction): void {
+  static async getCategoryBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawSlug = req.params.slug;
       const slug = Array.isArray(rawSlug) ? rawSlug[0] : rawSlug;
-      const category = catalogService.getCategoryBySlug(slug);
+      const category = await catalogService.getCategoryBySlug(slug);
       ResponseFormatter.success(res, category);
     } catch (error) {
       next(error);
     }
   }
 
-  static getVariantsForCategory(req: Request, res: Response, next: NextFunction): void {
+  static async getVariantsForCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawSlug = req.params.categorySlug;
       const categorySlug = Array.isArray(rawSlug) ? rawSlug[0] : rawSlug;
-      const variants = catalogService.getVariantsForCategory(categorySlug, true);
+      const variants = await catalogService.getVariantsForCategory(categorySlug, true);
       ResponseFormatter.success(res, variants);
     } catch (error) {
       next(error);
     }
   }
 
-  static getVariantBySlug(req: Request, res: Response, next: NextFunction): void {
+  static async getVariantBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawCatSlug = req.params.categorySlug;
       const categorySlug = Array.isArray(rawCatSlug) ? rawCatSlug[0] : rawCatSlug;
       const rawVarSlug = req.params.variantSlug;
       const variantSlug = Array.isArray(rawVarSlug) ? rawVarSlug[0] : rawVarSlug;
 
-      const variant = catalogService.getVariantBySlug(categorySlug, variantSlug);
+      const variant = await catalogService.getVariantBySlug(categorySlug, variantSlug);
       ResponseFormatter.success(res, variant);
     } catch (error) {
       next(error);
     }
   }
 
-  static getVariantById(req: Request, res: Response, next: NextFunction): void {
+  static async getVariantById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      const variant = catalogService.getVariantById(id);
+      const variant = await catalogService.getVariantById(id);
       ResponseFormatter.success(res, variant);
     } catch (error) {
       next(error);
@@ -68,58 +68,58 @@ export class CatalogController {
   // -------------------------------------------------------------
   // Admin Catalog Endpoints
   // -------------------------------------------------------------
-  static getAdminCategories(_req: Request, res: Response, next: NextFunction): void {
+  static async getAdminCategories(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const categories = catalogService.getAllCategoriesAdmin();
+      const categories = await catalogService.getAllCategoriesAdmin();
       ResponseFormatter.success(res, categories);
     } catch (error) {
       next(error);
     }
   }
 
-  static createCategory(req: Request, res: Response, next: NextFunction): void {
+  static async createCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const category = catalogService.createCategory(req.body);
+      const category = await catalogService.createCategory(req.body);
       ResponseFormatter.success(res, category, 201);
     } catch (error) {
       next(error);
     }
   }
 
-  static updateCategory(req: Request, res: Response, next: NextFunction): void {
+  static async updateCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      const updated = catalogService.updateCategory(id, req.body);
+      const updated = await catalogService.updateCategory(id, req.body);
       ResponseFormatter.success(res, updated);
     } catch (error) {
       next(error);
     }
   }
 
-  static getAdminVariants(_req: Request, res: Response, next: NextFunction): void {
+  static async getAdminVariants(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const variants = catalogService.getAllVariantsAdmin();
+      const variants = await catalogService.getAllVariantsAdmin();
       ResponseFormatter.success(res, variants);
     } catch (error) {
       next(error);
     }
   }
 
-  static createVariant(req: Request, res: Response, next: NextFunction): void {
+  static async createVariant(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const variant = catalogService.createVariant(req.body);
+      const variant = await catalogService.createVariant(req.body);
       ResponseFormatter.success(res, variant, 201);
     } catch (error) {
       next(error);
     }
   }
 
-  static updateVariant(req: Request, res: Response, next: NextFunction): void {
+  static async updateVariant(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      const updated = catalogService.updateVariant(id, req.body);
+      const updated = await catalogService.updateVariant(id, req.body);
       ResponseFormatter.success(res, updated);
     } catch (error) {
       next(error);

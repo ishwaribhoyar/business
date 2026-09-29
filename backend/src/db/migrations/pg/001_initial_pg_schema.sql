@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id VARCHAR(64) PRIMARY KEY,
   order_reference VARCHAR(50) UNIQUE NOT NULL,
   customer_id VARCHAR(64) NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
-  product_id VARCHAR(64) NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id VARCHAR(64),
   quantity NUMERIC(10,2) NOT NULL,
   unit VARCHAR(50) NOT NULL,
   delivery_address TEXT NOT NULL,

@@ -1,20 +1,12 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { AuditLog } from '../models/index.js';
 
 export class AuditLogRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
-  }
-
-  create(log: AuditLog): void {
-    const stmt = this.db.prepare(`
+  create(log: AuditLog): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, changes_json, ip_address, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
+    `, [
       log.id,
       log.user_id ?? null,
       log.action,
@@ -22,25 +14,42 @@ export class AuditLogRepository {
       log.entity_id,
       log.changes_json ?? null,
       log.ip_address ?? null,
-      log.created_at
+      log.created_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
+  }
+
+  findByEntity(entityType: string, entityId: string): Promise<AuditLog[]> | AuditLog[] {
+    return dbAdapter.all<AuditLog>(
+      'SELECT * FROM audit_logs WHERE entity_type = ? AND entity_id = ? ORDER BY created_at DESC',
+      [entityType, entityId]
     );
   }
 
-  findByEntity(entityType: string, entityId: string): AuditLog[] {
-    const stmt = this.db.prepare('SELECT * FROM audit_logs WHERE entity_type = ? AND entity_id = ? ORDER BY created_at DESC');
-    return (stmt.all(entityType, entityId) as unknown as AuditLog[]) || [];
-  }
+  findAll(limit = 50, offset = 0): Promise<{ logs: AuditLog[]; total: number }> | { logs: AuditLog[]; total: number } {
+    if (dbAdapter.isPostgres) {
+      return (async () => {
+        const countRes = await dbAdapter.get<{ total: number | string }>('SELECT COUNT(*) as total FROM audit_logs');
+        const logs = await dbAdapter.all<AuditLog>(
+          'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?',
+          [limit, offset]
+        );
+        return {
+          logs,
+          total: Number(countRes?.total || 0),
+        };
+      })();
+    }
 
-  findAll(limit = 50, offset = 0): { logs: AuditLog[]; total: number } {
-    const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM audit_logs');
-    const countResult = countStmt.get() as { total: number };
-
-    const stmt = this.db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?');
-    const logs = stmt.all(limit, offset) as unknown as AuditLog[];
+    const countResult = dbAdapter.get<{ total: number }>('SELECT COUNT(*) as total FROM audit_logs') as { total: number } | null;
+    const logs = dbAdapter.all<AuditLog>(
+      'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      [limit, offset]
+    ) as AuditLog[];
 
     return {
       logs,
-      total: countResult.total,
+      total: Number(countResult?.total || 0),
     };
   }
 }

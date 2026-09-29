@@ -1,47 +1,35 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { AdminUser } from '../models/index.js';
 
 export class AdminUserRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
+  findByEmail(email: string): Promise<AdminUser | null> | (AdminUser | null) {
+    return dbAdapter.get<AdminUser>('SELECT * FROM admin_users WHERE email = ?', [email.toLowerCase().trim()]);
   }
 
-  findByEmail(email: string): AdminUser | null {
-    const stmt = this.db.prepare('SELECT * FROM admin_users WHERE email = ?');
-    const result = stmt.get(email.toLowerCase().trim());
-    return (result as unknown as AdminUser) || null;
+  findById(id: string): Promise<AdminUser | null> | (AdminUser | null) {
+    return dbAdapter.get<AdminUser>('SELECT * FROM admin_users WHERE id = ?', [id]);
   }
 
-  findById(id: string): AdminUser | null {
-    const stmt = this.db.prepare('SELECT * FROM admin_users WHERE id = ?');
-    const result = stmt.get(id);
-    return (result as unknown as AdminUser) || null;
+  findAll(): Promise<AdminUser[]> | AdminUser[] {
+    return dbAdapter.all<AdminUser>('SELECT * FROM admin_users ORDER BY created_at DESC');
   }
 
-  findAll(): AdminUser[] {
-    const stmt = this.db.prepare('SELECT * FROM admin_users ORDER BY created_at DESC');
-    return (stmt.all() as unknown as AdminUser[]) || [];
+  updateLastLogin(id: string, timestamp: string): Promise<void> | void {
+    const res = dbAdapter.run('UPDATE admin_users SET last_login_at = ?, updated_at = ? WHERE id = ?', [timestamp, timestamp, id]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  updateLastLogin(id: string, timestamp: string): void {
-    const stmt = this.db.prepare('UPDATE admin_users SET last_login_at = ?, updated_at = ? WHERE id = ?');
-    stmt.run(timestamp, timestamp, id);
+  updateStatus(id: string, isActive: number | boolean, updatedAt: string): Promise<void> | void {
+    const boolVal = typeof isActive === 'boolean' ? (isActive ? 1 : 0) : isActive;
+    const res = dbAdapter.run('UPDATE admin_users SET is_active = ?, updated_at = ? WHERE id = ?', [boolVal, updatedAt, id]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  updateStatus(id: string, isActive: number, updatedAt: string): void {
-    const stmt = this.db.prepare('UPDATE admin_users SET is_active = ?, updated_at = ? WHERE id = ?');
-    stmt.run(isActive, updatedAt, id);
-  }
-
-  create(user: AdminUser): void {
-    const stmt = this.db.prepare(`
+  create(user: AdminUser): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO admin_users (id, email, password_hash, full_name, role, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
+    `, [
       user.id,
       user.email,
       user.password_hash,
@@ -49,7 +37,8 @@ export class AdminUserRepository {
       user.role,
       user.is_active,
       user.created_at,
-      user.updated_at
-    );
+      user.updated_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 }

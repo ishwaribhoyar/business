@@ -8,6 +8,7 @@ import { DriverRepository } from '../repositories/driverRepository.js';
 import { PaymentRepository } from '../repositories/paymentRepository.js';
 import { AuditLogRepository } from '../repositories/auditLogRepository.js';
 import { AdminUserRepository } from '../repositories/adminUserRepository.js';
+import { VariantRepository } from '../repositories/variantRepository.js';
 import { SupplierService } from '../services/supplierService.js';
 import { TruckService } from '../services/truckService.js';
 import { DriverService } from '../services/driverService.js';
@@ -17,6 +18,7 @@ import bcrypt from 'bcryptjs';
 
 const orderRepo = new OrderRepository();
 const productRepo = new ProductRepository();
+const variantRepo = new VariantRepository();
 const supplierRepo = new SupplierRepository();
 const truckRepo = new TruckRepository();
 const driverRepo = new DriverRepository();
@@ -33,15 +35,17 @@ export class AdminController {
   // -------------------------------------------------------------
   // Dashboard & System Metrics (100% Real Database Aggregations)
   // -------------------------------------------------------------
-  static getDashboardSummary(_req: Request, res: Response, next: NextFunction): void {
+  static async getDashboardSummary(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const metrics = orderRepo.getDashboardMetrics();
-      const products = productRepo.findAllActive();
-      const suppliers = supplierRepo.findAll();
-      const trucks = truckRepo.findAll();
-      const drivers = driverRepo.findAll();
+      const metrics = await orderRepo.getDashboardMetrics();
+      const legacyProducts = (await productRepo.findAllActive()) as any[];
+      const activeVariants = (await variantRepo.findAllActive()) as any[];
+      const activeProductsCount = legacyProducts.length > 0 ? legacyProducts.length : activeVariants.length;
+      const suppliers = (await supplierRepo.findAll()) as any[];
+      const trucks = (await truckRepo.findAll()) as any[];
+      const drivers = (await driverRepo.findAll()) as any[];
 
-      const recentOrders = orderRepo.findAll({ limit: 6 });
+      const recentOrders = await orderRepo.findAll({ limit: 6 });
 
       const summary = {
         totalOrders: metrics.totalOrders,
@@ -52,7 +56,7 @@ export class AdminController {
         totalDirectCosts: metrics.totalDirectCosts,
         grossMargin: metrics.grossMargin,
         ordersByStatus: metrics.ordersByStatus,
-        activeProductsCount: products.length,
+        activeProductsCount,
         registeredSuppliersCount: suppliers.length,
         registeredTrucksCount: trucks.length,
         registeredDriversCount: drivers.length,
@@ -84,20 +88,20 @@ export class AdminController {
   // -------------------------------------------------------------
   // Suppliers Management
   // -------------------------------------------------------------
-  static getSuppliers(_req: Request, res: Response, next: NextFunction): void {
+  static async getSuppliers(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const suppliers = supplierService.getAllSuppliers();
+      const suppliers = await supplierService.getAllSuppliers();
       ResponseFormatter.success(res, suppliers);
     } catch (error) {
       next(error);
     }
   }
 
-  static getSupplierById(req: Request, res: Response, next: NextFunction): void {
+  static async getSupplierById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      const supplier = supplierService.getSupplierById(id);
+      const supplier = await supplierService.getSupplierById(id);
       if (!supplier) {
         throw new NotFoundError(`Supplier '${id}'`);
       }
@@ -107,22 +111,22 @@ export class AdminController {
     }
   }
 
-  static createSupplier(req: Request, res: Response, next: NextFunction): void {
+  static async createSupplier(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as any).user;
-      const supplier = supplierService.createSupplier(req.body, user.id, user.email);
+      const supplier = await supplierService.createSupplier(req.body, user.id, user.email);
       ResponseFormatter.success(res, supplier, 201);
     } catch (error) {
       next(error);
     }
   }
 
-  static updateSupplier(req: Request, res: Response, next: NextFunction): void {
+  static async updateSupplier(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
       const user = (req as any).user;
-      const supplier = supplierService.updateSupplier(id, req.body, user.id, user.email);
+      const supplier = await supplierService.updateSupplier(id, req.body, user.id, user.email);
       ResponseFormatter.success(res, supplier);
     } catch (error) {
       next(error);
@@ -132,20 +136,20 @@ export class AdminController {
   // -------------------------------------------------------------
   // Trucks Management
   // -------------------------------------------------------------
-  static getTrucks(_req: Request, res: Response, next: NextFunction): void {
+  static async getTrucks(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const trucks = truckService.getAllTrucks();
+      const trucks = await truckService.getAllTrucks();
       ResponseFormatter.success(res, trucks);
     } catch (error) {
       next(error);
     }
   }
 
-  static getTruckById(req: Request, res: Response, next: NextFunction): void {
+  static async getTruckById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      const truck = truckService.getTruckById(id);
+      const truck = await truckService.getTruckById(id);
       if (!truck) {
         throw new NotFoundError(`Truck '${id}'`);
       }
@@ -155,22 +159,22 @@ export class AdminController {
     }
   }
 
-  static createTruck(req: Request, res: Response, next: NextFunction): void {
+  static async createTruck(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as any).user;
-      const truck = truckService.createTruck(req.body, user.id, user.email);
+      const truck = await truckService.createTruck(req.body, user.id, user.email);
       ResponseFormatter.success(res, truck, 201);
     } catch (error) {
       next(error);
     }
   }
 
-  static updateTruck(req: Request, res: Response, next: NextFunction): void {
+  static async updateTruck(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
       const user = (req as any).user;
-      const truck = truckService.updateTruck(id, req.body, user.id, user.email);
+      const truck = await truckService.updateTruck(id, req.body, user.id, user.email);
       ResponseFormatter.success(res, truck);
     } catch (error) {
       next(error);
@@ -180,20 +184,20 @@ export class AdminController {
   // -------------------------------------------------------------
   // Drivers Management
   // -------------------------------------------------------------
-  static getDrivers(_req: Request, res: Response, next: NextFunction): void {
+  static async getDrivers(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const drivers = driverService.getAllDrivers();
+      const drivers = await driverService.getAllDrivers();
       ResponseFormatter.success(res, drivers);
     } catch (error) {
       next(error);
     }
   }
 
-  static getDriverById(req: Request, res: Response, next: NextFunction): void {
+  static async getDriverById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      const driver = driverService.getDriverById(id);
+      const driver = await driverService.getDriverById(id);
       if (!driver) {
         throw new NotFoundError(`Driver '${id}'`);
       }
@@ -203,22 +207,22 @@ export class AdminController {
     }
   }
 
-  static createDriver(req: Request, res: Response, next: NextFunction): void {
+  static async createDriver(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as any).user;
-      const driver = driverService.createDriver(req.body, user.id, user.email);
+      const driver = await driverService.createDriver(req.body, user.id, user.email);
       ResponseFormatter.success(res, driver, 201);
     } catch (error) {
       next(error);
     }
   }
 
-  static updateDriver(req: Request, res: Response, next: NextFunction): void {
+  static async updateDriver(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
       const user = (req as any).user;
-      const driver = driverService.updateDriver(id, req.body, user.id, user.email);
+      const driver = await driverService.updateDriver(id, req.body, user.id, user.email);
       ResponseFormatter.success(res, driver);
     } catch (error) {
       next(error);
@@ -228,11 +232,11 @@ export class AdminController {
   // -------------------------------------------------------------
   // Payments & Ledger
   // -------------------------------------------------------------
-  static getPayments(req: Request, res: Response, next: NextFunction): void {
+  static async getPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
       const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
-      const result = paymentRepo.findAll(limit, offset);
+      const result = await paymentRepo.findAll(limit, offset);
       ResponseFormatter.success(res, result.payments, 200, {
         total: result.total,
         limit,
@@ -246,11 +250,11 @@ export class AdminController {
   // -------------------------------------------------------------
   // Audit Logs
   // -------------------------------------------------------------
-  static getAuditLogs(req: Request, res: Response, next: NextFunction): void {
+  static async getAuditLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
       const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
-      const result = auditRepo.findAll(limit, offset);
+      const result = await auditRepo.findAll(limit, offset);
       ResponseFormatter.success(res, result.logs, 200, {
         total: result.total,
         limit,
@@ -265,7 +269,7 @@ export class AdminController {
   // -------------------------------------------------------------
   static async getAdminUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const users = adminUserRepo.findAll();
+      const users = (await adminUserRepo.findAll()) as any[];
       // Sanitize: never expose password_hash
       const safeUsers = users.map((u) => {
         const { password_hash, ...safe } = u;
@@ -283,7 +287,7 @@ export class AdminController {
       const actor = req.user;
 
       // Check existing email
-      const existing = adminUserRepo.findByEmail(email);
+      const existing = await adminUserRepo.findByEmail(email);
       if (existing) {
         throw new ValidationError(`An admin user with email '${email}' already exists.`);
       }
@@ -304,7 +308,7 @@ export class AdminController {
         updated_at: now,
       };
 
-      adminUserRepo.create(newUser);
+      await adminUserRepo.create(newUser);
 
       // Audit log
       auditService.log({
@@ -329,7 +333,7 @@ export class AdminController {
       const { is_active } = req.body;
       const actor = req.user;
 
-      const targetUser = adminUserRepo.findById(id);
+      const targetUser = await adminUserRepo.findById(id);
       if (!targetUser) {
         throw new NotFoundError(`Admin user with ID '${id}'`);
       }
@@ -341,7 +345,7 @@ export class AdminController {
 
       // Prevent deactivating the only active SUPER_ADMIN
       if (targetUser.role === 'SUPER_ADMIN' && is_active === 0) {
-        const allUsers = adminUserRepo.findAll();
+        const allUsers = (await adminUserRepo.findAll()) as any[];
         const activeSuperAdmins = allUsers.filter((u) => u.role === 'SUPER_ADMIN' && (u.is_active === 1 || (u.is_active as any) === true));
         if (activeSuperAdmins.length <= 1) {
           throw new ValidationError('Cannot deactivate the sole active Super Admin in the system.');
@@ -349,7 +353,7 @@ export class AdminController {
       }
 
       const now = new Date().toISOString();
-      adminUserRepo.updateStatus(id, is_active, now);
+      await adminUserRepo.updateStatus(id, is_active, now);
 
       auditService.log({
         userId: actor?.id || 'SYSTEM',

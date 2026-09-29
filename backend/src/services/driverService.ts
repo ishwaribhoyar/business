@@ -21,7 +21,7 @@ export class DriverService {
     this.auditService = auditService;
   }
 
-  createDriver(input: CreateDriverInput, adminId: string, adminName: string): Driver {
+  async createDriver(input: CreateDriverInput, adminId: string, adminName: string): Promise<Driver> {
     if (!input.full_name || input.full_name.trim().length < 2) {
       throw new ValidationError('Driver full name must be at least 2 characters.');
     }
@@ -45,9 +45,9 @@ export class DriverService {
       updated_at: now,
     };
 
-    this.driverRepo.create(driver);
+    await this.driverRepo.create(driver);
 
-    this.auditService.recordAction({
+    await this.auditService.recordAction({
       userId: adminId,
       action: 'DRIVER_CREATED',
       entityType: 'DRIVER',
@@ -58,18 +58,18 @@ export class DriverService {
     return driver;
   }
 
-  updateDriver(id: string, updates: Partial<Driver>, adminId: string, adminName: string): Driver {
-    const existing = this.driverRepo.findById(id);
+  async updateDriver(id: string, updates: Partial<Driver>, adminId: string, adminName: string): Promise<Driver> {
+    const existing = await this.driverRepo.findById(id);
     if (!existing) {
       throw new NotFoundError(`Driver '${id}'`);
     }
 
-    const updated = this.driverRepo.update(id, updates);
+    const updated = await this.driverRepo.update(id, updates);
     if (!updated) {
       throw new NotFoundError(`Driver '${id}'`);
     }
 
-    this.auditService.recordAction({
+    await this.auditService.recordAction({
       userId: adminId,
       action: 'DRIVER_UPDATED',
       entityType: 'DRIVER',
@@ -80,11 +80,11 @@ export class DriverService {
     return updated;
   }
 
-  getAllDrivers(activeOnly = false): Driver[] {
-    return this.driverRepo.findAll({ activeOnly });
+  async getAllDrivers(activeOnly = false): Promise<Driver[]> {
+    return (await this.driverRepo.findAll({ activeOnly })) as Driver[];
   }
 
-  getDriverById(id: string): Driver | null {
-    return this.driverRepo.findById(id);
+  async getDriverById(id: string): Promise<Driver | null> {
+    return (await this.driverRepo.findById(id)) as Driver | null;
   }
 }

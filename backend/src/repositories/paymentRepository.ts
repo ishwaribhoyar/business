@@ -1,23 +1,14 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { Payment } from '../models/index.js';
 
 export class PaymentRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
-  }
-
-  create(payment: Payment): void {
-    const stmt = this.db.prepare(`
+  create(payment: Payment): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO payments (
         id, order_id, amount, payment_method, payment_status,
         transaction_reference, notes, recorded_by_user_id, payment_date, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       payment.id,
       payment.order_id,
       payment.amount,
@@ -27,41 +18,62 @@ export class PaymentRepository {
       payment.notes ?? null,
       payment.recorded_by_user_id,
       payment.payment_date,
-      payment.created_at
+      payment.created_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
+  }
+
+  findByOrderId(orderId: string): Promise<Payment[]> | Payment[] {
+    return dbAdapter.all<Payment>(
+      'SELECT * FROM payments WHERE order_id = ? ORDER BY payment_date DESC, created_at DESC',
+      [orderId]
     );
   }
 
-  findByOrderId(orderId: string): Payment[] {
-    const stmt = this.db.prepare('SELECT * FROM payments WHERE order_id = ? ORDER BY payment_date DESC, created_at DESC');
-    return (stmt.all(orderId) as unknown as Payment[]) || [];
+  findById(id: string): Promise<Payment | null> | (Payment | null) {
+    return dbAdapter.get<Payment>('SELECT * FROM payments WHERE id = ?', [id]);
   }
 
-  findById(id: string): Payment | null {
-    const stmt = this.db.prepare('SELECT * FROM payments WHERE id = ?');
-    const result = stmt.get(id);
-    return (result as unknown as Payment) || null;
-  }
-
-  getTotalPaidForOrder(orderId: string): number {
-    const stmt = this.db.prepare(`
+  getTotalPaidForOrder(orderId: string): Promise<number> | number {
+    const sql = `
       SELECT COALESCE(SUM(amount), 0) as total_paid
       FROM payments
       WHERE order_id = ? AND payment_status != 'Refunded'
-    `);
-    const result = stmt.get(orderId) as { total_paid: number } | undefined;
-    return result?.total_paid ?? 0;
+    `;
+    if (dbAdapter.isPostgres) {
+      return (async () => {
+        const res = await dbAdapter.get<{ total_paid: number | string }>(sql, [orderId]);
+        return Number(res?.total_paid || 0);
+      })();
+    }
+    const res = dbAdapter.get<{ total_paid: number }>(sql, [orderId]) as { total_paid: number } | null;
+    return Number(res?.total_paid || 0);
   }
 
-  findAll(limit = 50, offset = 0): { payments: Payment[]; total: number } {
-    const countStmt = this.db.prepare('SELECT COUNT(*) as total FROM payments');
-    const countResult = countStmt.get() as { total: number };
+  findAll(limit = 50, offset = 0): Promise<{ payments: Payment[]; total: number }> | { payments: Payment[]; total: number } {
+    if (dbAdapter.isPostgres) {
+      return (async () => {
+        const countRes = await dbAdapter.get<{ total: number | string }>('SELECT COUNT(*) as total FROM payments');
+        const payments = await dbAdapter.all<Payment>(
+          'SELECT * FROM payments ORDER BY created_at DESC LIMIT ? OFFSET ?',
+          [limit, offset]
+        );
+        return {
+          payments,
+          total: Number(countRes?.total || 0),
+        };
+      })();
+    }
 
-    const stmt = this.db.prepare('SELECT * FROM payments ORDER BY created_at DESC LIMIT ? OFFSET ?');
-    const payments = stmt.all(limit, offset) as unknown as Payment[];
+    const countResult = dbAdapter.get<{ total: number }>('SELECT COUNT(*) as total FROM payments') as { total: number } | null;
+    const payments = dbAdapter.all<Payment>(
+      'SELECT * FROM payments ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      [limit, offset]
+    ) as Payment[];
 
     return {
       payments,
-      total: countResult.total,
+      total: Number(countResult?.total || 0),
     };
   }
 }

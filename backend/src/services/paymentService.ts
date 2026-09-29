@@ -4,7 +4,7 @@ import { QuotationRepository } from '../repositories/quotationRepository.js';
 import { AuditService } from '../services/auditService.js';
 import { Payment, PaymentStatus, Order } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 
 export interface RecordPaymentInputs {
   order_id: string;
@@ -37,8 +37,8 @@ export class PaymentService {
     this.auditService = auditService;
   }
 
-  recordPayment(inputs: RecordPaymentInputs): { payment: Payment; order: Order; totalPaid: number; balanceDue: number } {
-    const order = this.orderRepo.findById(inputs.order_id);
+  async recordPayment(inputs: RecordPaymentInputs): Promise<{ payment: Payment; order: Order; totalPaid: number; balanceDue: number }> {
+    const order = await this.orderRepo.findById(inputs.order_id);
     if (!order) {
       throw new NotFoundError(`Order with ID '${inputs.order_id}'`);
     }
@@ -60,13 +60,13 @@ export class PaymentService {
     // Get order customer price from active quotation
     let finalCustomerPrice = 0;
     if (order.current_quotation_id) {
-      const quote = this.quotationRepo.findById(order.current_quotation_id);
+      const quote = await this.quotationRepo.findById(order.current_quotation_id);
       if (quote) {
         finalCustomerPrice = quote.final_delivered_price;
       }
     }
 
-    const currentTotalPaid = this.paymentRepo.getTotalPaidForOrder(order.id);
+    const currentTotalPaid = await this.paymentRepo.getTotalPaidForOrder(order.id);
     const newTotalPaid = currentTotalPaid + amount;
 
     // Enforce overpayment rule: paid amount cannot exceed final customer price if a quote has been issued
@@ -108,13 +108,11 @@ export class PaymentService {
       created_at: now,
     };
 
-    const db = getDatabase();
-    db.exec('BEGIN IMMEDIATE;');
-    try {
-      this.paymentRepo.create(payment);
-      this.orderRepo.updatePaymentStatus(order.id, derivedStatus);
+    return dbAdapter.transaction(async () => {
+      await this.paymentRepo.create(payment);
+      await this.orderRepo.updatePaymentStatus(order.id, derivedStatus);
 
-      this.auditService.recordAction({
+      await this.auditService.recordAction({
         userId: inputs.user_id,
         action: 'PAYMENT_RECORDED',
         entityType: 'PAYMENT',
@@ -130,9 +128,7 @@ export class PaymentService {
         ipAddress: inputs.ip_address,
       });
 
-      db.exec('COMMIT;');
-
-      const updatedOrder = this.orderRepo.findById(order.id)!;
+      const updatedOrder = (await this.orderRepo.findById(order.id))!;
       const balanceDue = Math.max(0, finalCustomerPrice - newTotalPaid);
 
       return {
@@ -141,32 +137,27 @@ export class PaymentService {
         totalPaid: newTotalPaid,
         balanceDue,
       };
-    } catch (error) {
-      try {
-        db.exec('ROLLBACK;');
-      } catch {}
-      throw error;
-    }
+    });
   }
 
-  getOrderPaymentSummary(orderId: string): {
+  async getOrderPaymentSummary(orderId: string): Promise<{
     payments: Payment[];
     totalPaid: number;
     finalCustomerPrice: number;
     balanceDue: number;
     paymentStatus: PaymentStatus;
-  } {
-    const order = this.orderRepo.findById(orderId);
+  }> {
+    const order = await this.orderRepo.findById(orderId);
     if (!order) {
       throw new NotFoundError(`Order '${orderId}'`);
     }
 
-    const payments = this.paymentRepo.findByOrderId(orderId);
-    const totalPaid = this.paymentRepo.getTotalPaidForOrder(orderId);
+    const payments = await this.paymentRepo.findByOrderId(orderId);
+    const totalPaid = await this.paymentRepo.getTotalPaidForOrder(orderId);
 
     let finalCustomerPrice = 0;
     if (order.current_quotation_id) {
-      const quote = this.quotationRepo.findById(order.current_quotation_id);
+      const quote = await this.quotationRepo.findById(order.current_quotation_id);
       if (quote) {
         finalCustomerPrice = quote.final_delivered_price;
       }

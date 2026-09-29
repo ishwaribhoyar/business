@@ -1,15 +1,8 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { ProductVariant } from '../models/index.js';
 
 export class VariantRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
-  }
-
-  findByCategory(categoryId: string, activeOnly = true): ProductVariant[] {
+  findByCategory(categoryId: string, activeOnly = true): Promise<ProductVariant[]> | ProductVariant[] {
     const query = activeOnly
       ? `SELECT v.*, c.name as category_name, c.slug as category_slug
          FROM product_variants v
@@ -22,11 +15,10 @@ export class VariantRepository {
          WHERE v.category_id = ?
          ORDER BY v.display_order ASC, v.created_at ASC`;
 
-    const stmt = this.db.prepare(query);
-    return (stmt.all(categoryId) as unknown as ProductVariant[]) || [];
+    return dbAdapter.all<ProductVariant>(query, [categoryId]);
   }
 
-  findByCategorySlug(categorySlug: string, activeOnly = true): ProductVariant[] {
+  findByCategorySlug(categorySlug: string, activeOnly = true): Promise<ProductVariant[]> | ProductVariant[] {
     let searchSlug = categorySlug.toLowerCase().trim();
     if (
       searchSlug === 'black-stone' ||
@@ -49,23 +41,20 @@ export class VariantRepository {
          WHERE (c.slug = ? OR c.id = ?)
          ORDER BY v.display_order ASC, v.created_at ASC`;
 
-    const stmt = this.db.prepare(query);
-    return (stmt.all(searchSlug, categorySlug) as unknown as ProductVariant[]) || [];
+    return dbAdapter.all<ProductVariant>(query, [searchSlug, categorySlug]);
   }
 
-  findById(id: string): ProductVariant | null {
+  findById(id: string): Promise<ProductVariant | null> | (ProductVariant | null) {
     const query = `
       SELECT v.*, c.name as category_name, c.slug as category_slug
       FROM product_variants v
       JOIN product_categories c ON v.category_id = c.id
       WHERE v.id = ?
     `;
-    const stmt = this.db.prepare(query);
-    const result = stmt.get(id);
-    return (result as unknown as ProductVariant) || null;
+    return dbAdapter.get<ProductVariant>(query, [id]);
   }
 
-  findBySlug(slug: string, categoryIdOrSlug?: string): ProductVariant | null {
+  findBySlug(slug: string, categoryIdOrSlug?: string): Promise<ProductVariant | null> | (ProductVariant | null) {
     const searchSlug = slug.toLowerCase().trim();
     if (categoryIdOrSlug) {
       let catSlug = categoryIdOrSlug.toLowerCase().trim();
@@ -83,9 +72,7 @@ export class VariantRepository {
         JOIN product_categories c ON v.category_id = c.id
         WHERE (v.slug = ? OR v.id = ?) AND (c.slug = ? OR c.id = ?)
       `;
-      const stmt = this.db.prepare(query);
-      const result = stmt.get(searchSlug, slug, catSlug, categoryIdOrSlug);
-      return (result as unknown as ProductVariant) || null;
+      return dbAdapter.get<ProductVariant>(query, [searchSlug, slug, catSlug, categoryIdOrSlug]);
     }
 
     const query = `
@@ -94,12 +81,10 @@ export class VariantRepository {
       JOIN product_categories c ON v.category_id = c.id
       WHERE v.slug = ? OR v.id = ?
     `;
-    const stmt = this.db.prepare(query);
-    const result = stmt.get(searchSlug, slug);
-    return (result as unknown as ProductVariant) || null;
+    return dbAdapter.get<ProductVariant>(query, [searchSlug, slug]);
   }
 
-  findAllActive(): ProductVariant[] {
+  findAllActive(): Promise<ProductVariant[]> | ProductVariant[] {
     const query = `
       SELECT v.*, c.name as category_name, c.slug as category_slug
       FROM product_variants v
@@ -107,31 +92,27 @@ export class VariantRepository {
       WHERE v.is_active = 1 AND c.is_active = 1
       ORDER BY c.display_order ASC, v.display_order ASC
     `;
-    const stmt = this.db.prepare(query);
-    return (stmt.all() as unknown as ProductVariant[]) || [];
+    return dbAdapter.all<ProductVariant>(query);
   }
 
-  findAllAdmin(): ProductVariant[] {
+  findAllAdmin(): Promise<ProductVariant[]> | ProductVariant[] {
     const query = `
       SELECT v.*, c.name as category_name, c.slug as category_slug
       FROM product_variants v
       JOIN product_categories c ON v.category_id = c.id
       ORDER BY c.display_order ASC, v.display_order ASC
     `;
-    const stmt = this.db.prepare(query);
-    return (stmt.all() as unknown as ProductVariant[]) || [];
+    return dbAdapter.all<ProductVariant>(query);
   }
 
-  create(variant: ProductVariant): void {
-    const stmt = this.db.prepare(`
+  create(variant: ProductVariant): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO product_variants (
         id, category_id, name, slug, short_description, detailed_description,
         image_url, unit, min_quantity, indicative_price, specifications_schema,
         is_active, display_order, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       variant.id,
       variant.category_id,
       variant.name,
@@ -142,20 +123,18 @@ export class VariantRepository {
       variant.unit,
       variant.min_quantity ?? 1,
       variant.indicative_price ?? null,
-      variant.specifications_schema ?? '[]',
+      typeof variant.specifications_schema === 'object' ? JSON.stringify(variant.specifications_schema) : (variant.specifications_schema ?? '[]'),
       variant.is_active ?? 1,
       variant.display_order ?? 0,
       variant.created_at,
-      variant.updated_at
-    );
+      variant.updated_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  update(id: string, updates: Partial<ProductVariant>): void {
-    const existing = this.findById(id);
-    if (!existing) return;
-
+  update(id: string, updates: Partial<ProductVariant>): Promise<void> | void {
     const fields: string[] = [];
-    const values: (string | number | null)[] = [];
+    const values: (string | number | boolean | null)[] = [];
 
     if (updates.category_id !== undefined) {
       fields.push('category_id = ?');
@@ -195,7 +174,7 @@ export class VariantRepository {
     }
     if (updates.specifications_schema !== undefined) {
       fields.push('specifications_schema = ?');
-      values.push(updates.specifications_schema);
+      values.push(typeof updates.specifications_schema === 'object' ? JSON.stringify(updates.specifications_schema) : updates.specifications_schema);
     }
     if (updates.is_active !== undefined) {
       fields.push('is_active = ?');
@@ -206,12 +185,15 @@ export class VariantRepository {
       values.push(updates.display_order);
     }
 
+    if (fields.length === 0) return;
+
     fields.push('updated_at = ?');
     values.push(new Date().toISOString());
 
     values.push(id);
 
     const query = `UPDATE product_variants SET ${fields.join(', ')} WHERE id = ?`;
-    this.db.prepare(query).run(...values);
+    const res = dbAdapter.run(query, values);
+    if (res instanceof Promise) return res.then(() => {});
   }
 }

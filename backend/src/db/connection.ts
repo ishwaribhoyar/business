@@ -34,6 +34,16 @@ export function getDatabasePath(): string {
     return ':memory:';
   }
 
+  // If running with PostgreSQL configured, return a safe SQLite path for any local fallback
+  if (isPostgresConfigured()) {
+    const defaultLocalPath = path.resolve(process.cwd(), 'data/marketplace.sqlite');
+    const dir = path.dirname(defaultLocalPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return defaultLocalPath;
+  }
+
   // Extract path from DATABASE_URL like 'file:./data/marketplace.sqlite'
   const rawUrl = config.databaseUrl;
   const cleanPath = rawUrl.startsWith('file:') ? rawUrl.replace('file:', '') : rawUrl;

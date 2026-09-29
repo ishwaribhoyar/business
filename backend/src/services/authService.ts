@@ -20,8 +20,8 @@ export class AuthService {
   }
 
   async login(email: string, password: string): Promise<{ token: string; user: SafeAdminUser }> {
-    const user = this.userRepo.findByEmail(email);
-    if (!user || user.is_active === 0) {
+    const user = await this.userRepo.findByEmail(email);
+    if (!user || user.is_active === 0 || (user.is_active as any) === false) {
       Logger.warn(`Failed login attempt for email: ${email}`);
       throw new AuthenticationError('Invalid email or password');
     }
@@ -43,7 +43,7 @@ export class AuthService {
     });
 
     const now = new Date().toISOString();
-    this.userRepo.updateLastLogin(user.id, now);
+    await this.userRepo.updateLastLogin(user.id, now);
     Logger.info(`Admin user logged in successfully: ${user.email} (${user.role})`);
 
     const { password_hash, ...safeUser } = user;
@@ -58,8 +58,8 @@ export class AuthService {
     }
   }
 
-  getUserById(id: string): SafeAdminUser | null {
-    const user = this.userRepo.findById(id);
+  async getUserById(id: string): Promise<SafeAdminUser | null> {
+    const user = await this.userRepo.findById(id);
     if (!user) return null;
     const { password_hash, ...safeUser } = user;
     return safeUser;

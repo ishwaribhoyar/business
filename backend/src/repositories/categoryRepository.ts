@@ -1,37 +1,25 @@
-import { DatabaseSync } from 'node:sqlite';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 import { ProductCategory } from '../models/index.js';
 
 export class CategoryRepository {
-  private db: DatabaseSync;
-
-  constructor(db?: DatabaseSync) {
-    this.db = db ?? getDatabase();
-  }
-
-  findAllActive(): ProductCategory[] {
-    const stmt = this.db.prepare(
+  findAllActive(): Promise<ProductCategory[]> | ProductCategory[] {
+    return dbAdapter.all<ProductCategory>(
       'SELECT * FROM product_categories WHERE is_active = 1 ORDER BY display_order ASC, created_at ASC'
     );
-    return (stmt.all() as unknown as ProductCategory[]) || [];
   }
 
-  findAllAdmin(): ProductCategory[] {
-    const stmt = this.db.prepare(
+  findAllAdmin(): Promise<ProductCategory[]> | ProductCategory[] {
+    return dbAdapter.all<ProductCategory>(
       'SELECT * FROM product_categories ORDER BY display_order ASC, created_at ASC'
     );
-    return (stmt.all() as unknown as ProductCategory[]) || [];
   }
 
-  findById(id: string): ProductCategory | null {
-    const stmt = this.db.prepare('SELECT * FROM product_categories WHERE id = ?');
-    const result = stmt.get(id);
-    return (result as unknown as ProductCategory) || null;
+  findById(id: string): Promise<ProductCategory | null> | (ProductCategory | null) {
+    return dbAdapter.get<ProductCategory>('SELECT * FROM product_categories WHERE id = ?', [id]);
   }
 
-  findBySlug(slug: string): ProductCategory | null {
+  findBySlug(slug: string): Promise<ProductCategory | null> | (ProductCategory | null) {
     let searchSlug = slug.toLowerCase().trim();
-    // Support common aliases for Black Stone / Aggregate
     if (
       searchSlug === 'black-stone' ||
       searchSlug === 'aggregate' ||
@@ -40,19 +28,18 @@ export class CategoryRepository {
     ) {
       searchSlug = 'black-stone-aggregate';
     }
-    const stmt = this.db.prepare('SELECT * FROM product_categories WHERE slug = ? OR id = ?');
-    const result = stmt.get(searchSlug, slug);
-    return (result as unknown as ProductCategory) || null;
+    return dbAdapter.get<ProductCategory>(
+      'SELECT * FROM product_categories WHERE slug = ? OR id = ?',
+      [searchSlug, slug]
+    );
   }
 
-  create(category: ProductCategory): void {
-    const stmt = this.db.prepare(`
+  create(category: ProductCategory): Promise<void> | void {
+    const res = dbAdapter.run(`
       INSERT INTO product_categories (
         id, name, slug, description, image_url, is_active, display_order, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       category.id,
       category.name,
       category.slug,
@@ -61,16 +48,14 @@ export class CategoryRepository {
       category.is_active ?? 1,
       category.display_order ?? 0,
       category.created_at,
-      category.updated_at
-    );
+      category.updated_at,
+    ]);
+    if (res instanceof Promise) return res.then(() => {});
   }
 
-  update(id: string, updates: Partial<ProductCategory>): void {
-    const existing = this.findById(id);
-    if (!existing) return;
-
+  update(id: string, updates: Partial<ProductCategory>): Promise<void> | void {
     const fields: string[] = [];
-    const values: (string | number | null)[] = [];
+    const values: (string | number | boolean | null)[] = [];
 
     if (updates.name !== undefined) {
       fields.push('name = ?');
@@ -97,12 +82,15 @@ export class CategoryRepository {
       values.push(updates.display_order);
     }
 
+    if (fields.length === 0) return;
+
     fields.push('updated_at = ?');
     values.push(new Date().toISOString());
 
     values.push(id);
 
     const query = `UPDATE product_categories SET ${fields.join(', ')} WHERE id = ?`;
-    this.db.prepare(query).run(...values);
+    const res = dbAdapter.run(query, values);
+    if (res instanceof Promise) return res.then(() => {});
   }
 }

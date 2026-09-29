@@ -3,7 +3,7 @@ import { OrderRepository } from '../repositories/orderRepository.js';
 import { AuditService } from '../services/auditService.js';
 import { Quotation, Order } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 
 export interface QuotationCalculationInputs {
   material_cost: number;
@@ -100,8 +100,8 @@ export class QuotationService {
     };
   }
 
-  createQuotationSnapshot(context: CreateQuotationContext): { quotation: Quotation; order: Order } {
-    const order = this.orderRepo.findById(context.order_id);
+  async createQuotationSnapshot(context: CreateQuotationContext): Promise<{ quotation: Quotation; order: Order }> {
+    const order = await this.orderRepo.findById(context.order_id);
     if (!order) {
       throw new NotFoundError(`Order with ID '${context.order_id}'`);
     }
@@ -119,7 +119,7 @@ export class QuotationService {
         ? context.validity_date
         : new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
 
-    const latestVersion = this.quotationRepo.getLatestVersion(order.id);
+    const latestVersion = await this.quotationRepo.getLatestVersion(order.id);
     const newVersion = latestVersion + 1;
     const isRevision = latestVersion > 0;
 
@@ -148,25 +148,23 @@ export class QuotationService {
       created_at: now,
     };
 
-    const db = getDatabase();
-    db.exec('BEGIN IMMEDIATE;');
-    try {
+    return dbAdapter.transaction(async () => {
       // 1. Mark previous active quotations as SUPERSEDED (preserving historical snapshot records)
       if (isRevision) {
-        this.quotationRepo.markPreviousQuotationsSuperseded(order.id);
+        await this.quotationRepo.markPreviousQuotationsSuperseded(order.id);
       }
 
       // 2. Persist new immutable quotation snapshot
-      this.quotationRepo.create(newQuotation);
+      await this.quotationRepo.create(newQuotation);
 
       // 3. Update order current quotation pointer
-      this.orderRepo.updateCurrentQuotation(order.id, newQuotation.id);
+      await this.orderRepo.updateCurrentQuotation(order.id, newQuotation.id);
 
       // 4. Optionally advance status if order is in NEW or CONTACTED
       if (context.advance_order_status && (order.status === 'NEW' || order.status === 'CONTACTED')) {
-        this.orderRepo.updateStatus(order.id, 'QUOTATION_SENT');
+        await this.orderRepo.updateStatus(order.id, 'QUOTATION_SENT');
         const historyId = `osh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        this.orderRepo.recordStatusHistory({
+        await this.orderRepo.recordStatusHistory({
           id: historyId,
           order_id: order.id,
           previous_status: order.status,
@@ -178,7 +176,7 @@ export class QuotationService {
       }
 
       // 5. Audit trail record
-      this.auditService.recordAction({
+      await this.auditService.recordAction({
         userId: context.user_id,
         action: isRevision ? 'QUOTATION_REVISED' : 'QUOTATION_CREATED',
         entityType: 'QUOTATION',
@@ -193,21 +191,12 @@ export class QuotationService {
         ipAddress: context.ip_address,
       });
 
-      db.exec('COMMIT;');
-
-      const updatedOrder = this.orderRepo.findById(order.id)!;
+      const updatedOrder = (await this.orderRepo.findById(order.id))!;
       return { quotation: newQuotation, order: updatedOrder };
-    } catch (error) {
-      try {
-        db.exec('ROLLBACK;');
-      } catch {
-        // Rollback safety
-      }
-      throw error;
-    }
+    });
   }
 
-  getQuotationHistory(orderId: string): Quotation[] {
-    return this.quotationRepo.findByOrderId(orderId);
+  async getQuotationHistory(orderId: string): Promise<Quotation[]> {
+    return (await this.quotationRepo.findByOrderId(orderId)) as Quotation[];
   }
 }

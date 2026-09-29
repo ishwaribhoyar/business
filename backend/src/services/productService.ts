@@ -9,20 +9,20 @@ export class ProductService {
     this.productRepo = productRepo ?? new ProductRepository();
   }
 
-  getActiveProducts(): Product[] {
-    return this.productRepo.findAllActive();
+  async getActiveProducts(): Promise<Product[]> {
+    return (await this.productRepo.findAllActive()) as Product[];
   }
 
-  getProductBySlug(slug: string): Product {
-    const product = this.productRepo.findBySlug(slug);
+  async getProductBySlug(slug: string): Promise<Product> {
+    const product = (await this.productRepo.findBySlug(slug)) as Product | null;
     if (!product) {
       throw new NotFoundError(`Product '${slug}'`);
     }
     return product;
   }
 
-  getProductById(id: string): Product {
-    const product = this.productRepo.findById(id);
+  async getProductById(id: string): Promise<Product> {
+    const product = (await this.productRepo.findById(id)) as Product | null;
     if (!product) {
       throw new NotFoundError(`Product '${id}'`);
     }

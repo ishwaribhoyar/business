@@ -5,20 +5,20 @@ import { ResponseFormatter } from '../utils/response.js';
 const productService = new ProductService();
 
 export class ProductController {
-  static getAll(_req: Request, res: Response, next: NextFunction): void {
+  static async getAll(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const products = productService.getActiveProducts();
+      const products = await productService.getActiveProducts();
       ResponseFormatter.success(res, products);
     } catch (error) {
       next(error);
     }
   }
 
-  static getBySlug(req: Request, res: Response, next: NextFunction): void {
+  static async getBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawSlug = req.params.slug;
       const slug = Array.isArray(rawSlug) ? rawSlug[0] : rawSlug;
-      const product = productService.getProductBySlug(slug);
+      const product = await productService.getProductBySlug(slug);
       ResponseFormatter.success(res, product);
     } catch (error) {
       next(error);

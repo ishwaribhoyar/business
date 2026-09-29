@@ -6,7 +6,7 @@ import { ProductRepository } from '../repositories/productRepository.js';
 import { AuditService } from '../services/auditService.js';
 import { Order } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
-import { getDatabase } from '../db/connection.js';
+import { dbAdapter } from '../db/dbAdapter.js';
 
 export interface AssignFulfillmentContext {
   orderId: string;
@@ -43,14 +43,14 @@ export class FulfillmentService {
     this.auditService = auditService;
   }
 
-  assignSupplier(context: {
+  async assignSupplier(context: {
     orderId: string;
     supplierId: string;
     userId: string;
     userName: string;
     ipAddress?: string;
-  }): Order {
-    const order = this.orderRepo.findById(context.orderId);
+  }): Promise<Order> {
+    const order = await this.orderRepo.findById(context.orderId);
     if (!order) {
       throw new NotFoundError(`Order '${context.orderId}'`);
     }
@@ -59,7 +59,7 @@ export class FulfillmentService {
       throw new ValidationError(`Cannot assign supplier to an order in '${order.status}' status.`);
     }
 
-    const supplier = this.supplierRepo.findById(context.supplierId);
+    const supplier = await this.supplierRepo.findById(context.supplierId);
     if (!supplier) {
       throw new NotFoundError(`Supplier '${context.supplierId}'`);
     }
@@ -68,12 +68,10 @@ export class FulfillmentService {
       throw new ValidationError(`Supplier '${supplier.business_name}' is inactive and cannot be assigned.`);
     }
 
-    const db = getDatabase();
-    db.exec('BEGIN IMMEDIATE;');
-    try {
-      this.orderRepo.updateSupplier(order.id, supplier.id);
+    return dbAdapter.transaction(async () => {
+      await this.orderRepo.updateSupplier(order.id, supplier.id);
 
-      this.auditService.recordAction({
+      await this.auditService.recordAction({
         userId: context.userId,
         action: 'SUPPLIER_ASSIGNED',
         entityType: 'ORDER',
@@ -86,25 +84,20 @@ export class FulfillmentService {
         ipAddress: context.ipAddress,
       });
 
-      db.exec('COMMIT;');
-      return this.orderRepo.findById(order.id)!;
-    } catch (error) {
-      try {
-        db.exec('ROLLBACK;');
-      } catch {}
-      throw error;
-    }
+      const updated = await this.orderRepo.findById(order.id);
+      return updated!;
+    });
   }
 
-  assignTruck(context: {
+  async assignTruck(context: {
     orderId: string;
     truckId: string;
     autoAssignDefaultDriver?: boolean;
     userId: string;
     userName: string;
     ipAddress?: string;
-  }): { order: Order; warnings: string[] } {
-    const order = this.orderRepo.findById(context.orderId);
+  }): Promise<{ order: Order; warnings: string[] }> {
+    const order = await this.orderRepo.findById(context.orderId);
     if (!order) {
       throw new NotFoundError(`Order '${context.orderId}'`);
     }
@@ -113,7 +106,7 @@ export class FulfillmentService {
       throw new ValidationError(`Cannot assign truck to an order in '${order.status}' status.`);
     }
 
-    const truck = this.truckRepo.findById(context.truckId);
+    const truck = await this.truckRepo.findById(context.truckId);
     if (!truck) {
       throw new NotFoundError(`Truck '${context.truckId}'`);
     }
@@ -127,17 +120,15 @@ export class FulfillmentService {
       warnings.push(`Truck '${truck.registration_number}' is currently marked as '${truck.availability_status}'.`);
     }
 
-    const db = getDatabase();
-    db.exec('BEGIN IMMEDIATE;');
-    try {
-      this.orderRepo.updateTruck(order.id, truck.id);
+    return dbAdapter.transaction(async () => {
+      await this.orderRepo.updateTruck(order.id, truck.id);
 
       // Optionally auto-assign truck's default driver if order has no driver assigned
       if (context.autoAssignDefaultDriver && truck.default_driver_id && !order.driver_id) {
-        const defaultDriver = this.driverRepo.findById(truck.default_driver_id);
+        const defaultDriver = await this.driverRepo.findById(truck.default_driver_id);
         if (defaultDriver && defaultDriver.is_active) {
-          this.orderRepo.updateDriver(order.id, defaultDriver.id);
-          this.auditService.recordAction({
+          await this.orderRepo.updateDriver(order.id, defaultDriver.id);
+          await this.auditService.recordAction({
             userId: context.userId,
             action: 'DRIVER_ASSIGNED',
             entityType: 'ORDER',
@@ -153,7 +144,7 @@ export class FulfillmentService {
         }
       }
 
-      this.auditService.recordAction({
+      await this.auditService.recordAction({
         userId: context.userId,
         action: 'TRUCK_ASSIGNED',
         entityType: 'ORDER',
@@ -166,24 +157,19 @@ export class FulfillmentService {
         ipAddress: context.ipAddress,
       });
 
-      db.exec('COMMIT;');
-      return { order: this.orderRepo.findById(order.id)!, warnings };
-    } catch (error) {
-      try {
-        db.exec('ROLLBACK;');
-      } catch {}
-      throw error;
-    }
+      const updated = await this.orderRepo.findById(order.id);
+      return { order: updated!, warnings };
+    });
   }
 
-  assignDriver(context: {
+  async assignDriver(context: {
     orderId: string;
     driverId: string;
     userId: string;
     userName: string;
     ipAddress?: string;
-  }): { order: Order; warnings: string[] } {
-    const order = this.orderRepo.findById(context.orderId);
+  }): Promise<{ order: Order; warnings: string[] }> {
+    const order = await this.orderRepo.findById(context.orderId);
     if (!order) {
       throw new NotFoundError(`Order '${context.orderId}'`);
     }
@@ -192,7 +178,7 @@ export class FulfillmentService {
       throw new ValidationError(`Cannot assign driver to an order in '${order.status}' status.`);
     }
 
-    const driver = this.driverRepo.findById(context.driverId);
+    const driver = await this.driverRepo.findById(context.driverId);
     if (!driver) {
       throw new NotFoundError(`Driver '${context.driverId}'`);
     }
@@ -206,12 +192,10 @@ export class FulfillmentService {
       warnings.push(`Driver '${driver.full_name}' is currently marked as '${driver.availability_status}'.`);
     }
 
-    const db = getDatabase();
-    db.exec('BEGIN IMMEDIATE;');
-    try {
-      this.orderRepo.updateDriver(order.id, driver.id);
+    return dbAdapter.transaction(async () => {
+      await this.orderRepo.updateDriver(order.id, driver.id);
 
-      this.auditService.recordAction({
+      await this.auditService.recordAction({
         userId: context.userId,
         action: 'DRIVER_ASSIGNED',
         entityType: 'ORDER',
@@ -224,13 +208,8 @@ export class FulfillmentService {
         ipAddress: context.ipAddress,
       });
 
-      db.exec('COMMIT;');
-      return { order: this.orderRepo.findById(order.id)!, warnings };
-    } catch (error) {
-      try {
-        db.exec('ROLLBACK;');
-      } catch {}
-      throw error;
-    }
+      const updated = await this.orderRepo.findById(order.id);
+      return { order: updated!, warnings };
+    });
   }
 }

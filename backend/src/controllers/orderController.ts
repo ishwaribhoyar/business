@@ -46,7 +46,7 @@ const fulfillmentService = new FulfillmentService(
 );
 const paymentService = new PaymentService(paymentRepo, orderRepo, quotationRepo, auditService);
 
-function generateOrderReference(): string {
+async function generateOrderReference(): Promise<string> {
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
   let ref = '';
   let attempts = 0;
@@ -54,7 +54,7 @@ function generateOrderReference(): string {
     const randomStr = Math.floor(1000 + Math.random() * 9000).toString();
     ref = `NGP-${dateStr}-${randomStr}`;
     attempts++;
-  } while (orderRepo.findByReference(ref) && attempts < 100);
+  } while ((await orderRepo.findByReference(ref)) && attempts < 100);
   return ref;
 }
 
@@ -62,7 +62,7 @@ export class OrderController {
   // -------------------------------------------------------------
   // PUBLIC: Customer Quote Request Flow
   // -------------------------------------------------------------
-  static createQuoteRequest(req: Request, res: Response, next: NextFunction): void {
+  static async createQuoteRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const payload = req.body;
 
@@ -72,15 +72,15 @@ export class OrderController {
       let validatedSpecs: Record<string, string> = {};
 
       if (payload.variant_id) {
-        variant = variantRepo.findById(payload.variant_id) || variantRepo.findBySlug(payload.variant_id);
+        variant = (await variantRepo.findById(payload.variant_id)) || (await variantRepo.findBySlug(payload.variant_id));
         if (!variant) {
           throw new NotFoundError(`Material variant '${payload.variant_id}'`);
         }
-        if (variant.is_active === 0) {
+        if (variant.is_active === 0 || (variant.is_active as any) === false) {
           throw new ValidationError(`Material variant '${variant.name}' is currently inactive and cannot be selected.`);
         }
-        category = categoryRepo.findById(variant.category_id);
-        if (!category || category.is_active === 0) {
+        category = await categoryRepo.findById(variant.category_id);
+        if (!category || category.is_active === 0 || (category.is_active as any) === false) {
           throw new ValidationError(`Material category for variant '${variant.name}' is inactive.`);
         }
         // Validate specs
@@ -93,8 +93,8 @@ export class OrderController {
         if (!identifier) {
           throw new ValidationError('A material category or variant selection is required.');
         }
-        category = categoryRepo.findBySlug(identifier) || categoryRepo.findById(identifier);
-        const legacyProduct = productRepo.findById(identifier) || productRepo.findBySlug(identifier);
+        category = (await categoryRepo.findBySlug(identifier)) || (await categoryRepo.findById(identifier));
+        const legacyProduct = (await productRepo.findById(identifier)) || (await productRepo.findBySlug(identifier));
 
         if (!category && !legacyProduct) {
           throw new NotFoundError(`Material product '${identifier}'`);
@@ -102,7 +102,7 @@ export class OrderController {
 
         // If category found, pick first active variant if available
         if (category) {
-          const variants = variantRepo.findByCategory(category.id, true);
+          const variants = (await variantRepo.findByCategory(category.id, true)) as any[];
           if (variants.length > 0) {
             variant = variants[0];
             if (payload.specifications) {
@@ -123,7 +123,11 @@ export class OrderController {
         }
       }
 
-      const legacyFallback = productRepo.findBySlug(category?.slug || '') || productRepo.findById(variant?.id || '') || productRepo.findAllActive()[0];
+      const activeProds = (await productRepo.findAllActive()) as any[];
+      const legacyFallback =
+        (category?.slug ? await productRepo.findBySlug(category.slug) : null) ||
+        (variant?.id ? await productRepo.findById(variant.id) : null) ||
+        activeProds[0];
       const productId = legacyFallback?.id || variant?.id || category?.id || 'prod_material';
       const productName = variant?.name || category?.name || legacyFallback?.name || 'Bulk Material';
 
@@ -134,7 +138,7 @@ export class OrderController {
         : normalizedMobile;
 
       // 2. Create or resolve customer by mobile number (no password or account needed)
-      let customer = customerRepo.findByMobile(normalizedMobile);
+      let customer = await customerRepo.findByMobile(normalizedMobile);
       if (!customer) {
         customer = {
           id: `cust_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -148,11 +152,11 @@ export class OrderController {
           created_at: now,
           updated_at: now,
         };
-        customerRepo.create(customer);
+        await customerRepo.create(customer);
       }
 
       // 3. Duplicate submission protection (idempotency window: 60s)
-      const recentDuplicate = orderRepo.findRecentDuplicate(
+      const recentDuplicate = await orderRepo.findRecentDuplicate(
         customer.id,
         productId,
         payload.quantity,
@@ -179,7 +183,7 @@ export class OrderController {
 
       // 4. Create order record in NEW status with Phase 3 snapshots
       const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const orderRef = generateOrderReference();
+      const orderRef = await generateOrderReference();
 
       const categoryNameSnapshot = category?.name ?? legacyFallback?.name ?? 'Building Material';
       const variantNameSnapshot = variant?.name ?? null;
@@ -216,7 +220,7 @@ export class OrderController {
         updated_at: now,
       };
 
-      orderRepo.create(order);
+      await orderRepo.create(order);
 
       // 5. Record initial status history
       const history: OrderStatusHistory = {
@@ -228,10 +232,10 @@ export class OrderController {
         notes: 'Customer submitted quote request via website',
         created_at: now,
       };
-      orderRepo.recordStatusHistory(history);
+      await orderRepo.recordStatusHistory(history);
 
       // 6. Audit log creation
-      auditService.recordAction({
+      await auditService.recordAction({
         action: 'CUSTOMER_SUBMITTED_QUOTE_REQUEST',
         entityType: 'ORDER',
         entityId: orderId,
@@ -281,7 +285,7 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Orders List with Search & Filtering
   // -------------------------------------------------------------
-  static getOrders(req: Request, res: Response, next: NextFunction): void {
+  static async getOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const status = req.query.status as string | undefined;
       const paymentStatus = req.query.payment_status as any | undefined;
@@ -294,7 +298,7 @@ export class OrderController {
       const sortBy = req.query.sort_by as any | undefined;
       const sortOrder = req.query.sort_order === 'ASC' ? 'ASC' : 'DESC';
 
-      const result = orderRepo.findAll({
+      const result = await orderRepo.findAll({
         status: status as any,
         paymentStatus,
         productId,
@@ -320,36 +324,36 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Comprehensive Order Detail (The Operational Hub)
   // -------------------------------------------------------------
-  static getOrderDetail(req: Request, res: Response, next: NextFunction): void {
+  static async getOrderDetail(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const id = Array.isArray(rawId) ? rawId[0] : rawId;
-      const order = orderRepo.findById(id) || orderRepo.findByReference(id);
+      const order = (await orderRepo.findById(id)) || (await orderRepo.findByReference(id));
       if (!order) {
         throw new NotFoundError(`Order '${id}'`);
       }
 
-      const customer = customerRepo.findById(order.customer_id);
-      const product = productRepo.findById(order.product_id);
-      const history = orderRepo.getStatusHistory(order.id);
-      const notes = orderRepo.getNotes(order.id);
+      const customer = await customerRepo.findById(order.customer_id);
+      const product = await productRepo.findById(order.product_id);
+      const history = await orderRepo.getStatusHistory(order.id);
+      const notes = await orderRepo.getNotes(order.id);
 
       // Quotations (current active + revision history)
-      const quotations = quotationRepo.findByOrderId(order.id);
+      const quotations = (await quotationRepo.findByOrderId(order.id)) as any[];
       const activeQuotation = order.current_quotation_id
-        ? quotationRepo.findById(order.current_quotation_id)
+        ? await quotationRepo.findById(order.current_quotation_id)
         : quotations.length > 0
         ? quotations[0]
         : null;
 
       // Fulfillment details
-      const supplier = order.supplier_id ? supplierRepo.findById(order.supplier_id) : null;
-      const truck = order.truck_id ? truckRepo.findById(order.truck_id) : null;
-      const driver = order.driver_id ? driverRepo.findById(order.driver_id) : null;
+      const supplier = order.supplier_id ? await supplierRepo.findById(order.supplier_id) : null;
+      const truck = order.truck_id ? await truckRepo.findById(order.truck_id) : null;
+      const driver = order.driver_id ? await driverRepo.findById(order.driver_id) : null;
 
       // Payments & Financial Ledger
-      const payments = paymentRepo.findByOrderId(order.id);
-      const totalPaid = paymentRepo.getTotalPaidForOrder(order.id);
+      const payments = (await paymentRepo.findByOrderId(order.id)) as any[];
+      const totalPaid = await paymentRepo.getTotalPaidForOrder(order.id);
       const finalCustomerPrice = activeQuotation?.final_delivered_price ?? 0;
       const balanceDue = Math.max(0, finalCustomerPrice - totalPaid);
 
@@ -380,14 +384,14 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Status Transition via State Machine
   // -------------------------------------------------------------
-  static updateStatus(req: Request, res: Response, next: NextFunction): void {
+  static async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
       const { status, cancellation_reason, notes } = req.body;
       const user = (req as any).user;
 
-      const result = orderStatusService.transitionStatus({
+      const result = await orderStatusService.transitionStatus({
         orderId,
         targetStatus: status,
         cancellationReason: cancellation_reason,
@@ -414,14 +418,14 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Manual Quotation Snapshot Creation / Revision
   // -------------------------------------------------------------
-  static createQuotation(req: Request, res: Response, next: NextFunction): void {
+  static async createQuotation(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
       const payload = req.body;
       const user = (req as any).user;
 
-      const result = quotationService.createQuotationSnapshot({
+      const result = await quotationService.createQuotationSnapshot({
         order_id: orderId,
         material_cost: payload.material_cost,
         transport_cost: payload.transport_cost,
@@ -453,14 +457,14 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Assign Supplier to Order
   // -------------------------------------------------------------
-  static assignSupplier(req: Request, res: Response, next: NextFunction): void {
+  static async assignSupplier(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
       const { supplier_id } = req.body;
       const user = (req as any).user;
 
-      const updatedOrder = fulfillmentService.assignSupplier({
+      const updatedOrder = await fulfillmentService.assignSupplier({
         orderId,
         supplierId: supplier_id,
         userId: user.id,
@@ -480,14 +484,14 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Assign Truck to Order
   // -------------------------------------------------------------
-  static assignTruck(req: Request, res: Response, next: NextFunction): void {
+  static async assignTruck(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
       const { truck_id, auto_assign_default_driver } = req.body;
       const user = (req as any).user;
 
-      const result = fulfillmentService.assignTruck({
+      const result = await fulfillmentService.assignTruck({
         orderId,
         truckId: truck_id,
         autoAssignDefaultDriver: auto_assign_default_driver ?? true,
@@ -509,14 +513,14 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Assign Driver to Order
   // -------------------------------------------------------------
-  static assignDriver(req: Request, res: Response, next: NextFunction): void {
+  static async assignDriver(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
       const { driver_id } = req.body;
       const user = (req as any).user;
 
-      const result = fulfillmentService.assignDriver({
+      const result = await fulfillmentService.assignDriver({
         orderId,
         driverId: driver_id,
         userId: user.id,
@@ -537,14 +541,14 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Record Order Payment
   // -------------------------------------------------------------
-  static recordPayment(req: Request, res: Response, next: NextFunction): void {
+  static async recordPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
       const payload = req.body;
       const user = (req as any).user;
 
-      const result = paymentService.recordPayment({
+      const result = await paymentService.recordPayment({
         order_id: orderId,
         amount: payload.amount,
         payment_method: payload.payment_method,
@@ -576,14 +580,14 @@ export class OrderController {
   // -------------------------------------------------------------
   // ADMIN: Add Operational Internal Note
   // -------------------------------------------------------------
-  static addNote(req: Request, res: Response, next: NextFunction): void {
+  static async addNote(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rawId = req.params.id;
       const orderId = Array.isArray(rawId) ? rawId[0] : rawId;
       const { note } = req.body;
       const user = (req as any).user;
 
-      const order = orderRepo.findById(orderId);
+      const order = await orderRepo.findById(orderId);
       if (!order) {
         throw new NotFoundError(`Order '${orderId}'`);
       }
@@ -597,9 +601,9 @@ export class OrderController {
         created_at: new Date().toISOString(),
       };
 
-      orderRepo.addNote(noteRecord);
+      await orderRepo.addNote(noteRecord);
 
-      auditService.recordAction({
+      await auditService.recordAction({
         userId: user.id,
         action: 'ORDER_NOTE_ADDED',
         entityType: 'ORDER',

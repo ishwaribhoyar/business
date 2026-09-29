@@ -18,7 +18,7 @@ export class AuditService {
     this.auditRepo = auditRepo ?? new AuditLogRepository();
   }
 
-  recordAction(params: AuditActionParams): void {
+  async recordAction(params: AuditActionParams): Promise<void> {
     const log: AuditLog = {
       id: `aud_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       user_id: params.userId ?? null,
@@ -30,15 +30,15 @@ export class AuditService {
       created_at: new Date().toISOString(),
     };
 
-    this.auditRepo.create(log);
+    await this.auditRepo.create(log);
     Logger.info(`Audit logged: ${params.action} on ${params.entityType}:${params.entityId} by ${params.userId ?? 'SYSTEM'}`);
   }
 
   log(params: AuditActionParams): void {
-    this.recordAction(params);
+    void this.recordAction(params);
   }
 
-  getAuditTrail(entityType: string, entityId: string): AuditLog[] {
-    return this.auditRepo.findByEntity(entityType, entityId);
+  async getAuditTrail(entityType: string, entityId: string): Promise<AuditLog[]> {
+    return (await this.auditRepo.findByEntity(entityType, entityId)) as AuditLog[];
   }
 }
