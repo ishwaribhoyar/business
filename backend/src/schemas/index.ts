@@ -37,7 +37,34 @@ export const quoteRequestSchema = z.object({
   mobile_number: z.string().regex(indianMobileRegex, 'Please provide a valid 10-digit mobile number'),
   whatsapp_number: z.string().regex(indianMobileRegex, 'Please provide a valid WhatsApp number').optional().or(z.literal('')),
   additional_notes: z.string().max(500, 'Notes cannot exceed 500 characters').optional().or(z.literal('')),
-  map_pin_url: z.string().url('Map pin must be a valid URL').optional().or(z.literal('')),
+  map_pin_url: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(''))
+    .transform((val) => {
+      if (!val || val.trim().length === 0) return '';
+      let url = val.trim();
+      // Auto-prefix https:// if user pasted google maps link without protocol (e.g. maps.app.goo.gl/...)
+      if (/^(?:maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.|www\.google\.)/i.test(url)) {
+        url = `https://${url}`;
+      }
+      return url;
+    })
+    .refine(
+      (val) => {
+        if (!val || val === '') return true;
+        try {
+          const parsed = new URL(val);
+          return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      },
+      {
+        message: 'Map pin must be a valid URL (e.g. https://maps.app.goo.gl/...) or left blank',
+      }
+    ),
   qr_campaign_code: z.string().optional().or(z.literal('')),
 }).refine(
   (data) => !!(data.material_id || data.variant_id || data.category_id),

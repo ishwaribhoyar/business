@@ -274,6 +274,21 @@ export const QuoteOrderPage: React.FC = () => {
       }
     }
 
+    if (formData.map_pin_url && formData.map_pin_url.trim()) {
+      let pin = formData.map_pin_url.trim();
+      if (/^(?:maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.|www\.google\.)/i.test(pin)) {
+        pin = `https://${pin}`;
+      }
+      try {
+        const parsed = new URL(pin);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          errors.map_pin_url = 'Please provide a valid web link (e.g., https://maps.app.goo.gl/...)';
+        }
+      } catch {
+        errors.map_pin_url = 'Please enter a valid Google Maps link (e.g., https://maps.app.goo.gl/...) or leave blank';
+      }
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -293,6 +308,11 @@ export const QuoteOrderPage: React.FC = () => {
     setIsSubmitting(true);
     setErrorMsg(null);
 
+    let cleanMapPin = formData.map_pin_url?.trim() || undefined;
+    if (cleanMapPin && /^(?:maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.|www\.google\.)/i.test(cleanMapPin)) {
+      cleanMapPin = `https://${cleanMapPin}`;
+    }
+
     try {
       const response = await orderService.submitQuoteRequest({
         category_id: selectedCategory?.id,
@@ -307,11 +327,20 @@ export const QuoteOrderPage: React.FC = () => {
         mobile_number: formData.mobile_number,
         whatsapp_number: formData.whatsapp_number || undefined,
         additional_notes: formData.additional_notes || undefined,
-        map_pin_url: formData.map_pin_url || undefined,
+        map_pin_url: cleanMapPin,
         qr_campaign_code: formData.qr_campaign_code || undefined,
       });
       setSubmittedData(response);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.details && Array.isArray(err.details)) {
+        const serverFieldErrors: Record<string, string> = {};
+        for (const d of err.details) {
+          if (d.field) {
+            serverFieldErrors[d.field] = d.message;
+          }
+        }
+        setFieldErrors((prev) => ({ ...prev, ...serverFieldErrors }));
+      }
       setErrorMsg(
         err instanceof Error
           ? err.message
@@ -717,9 +746,19 @@ export const QuoteOrderPage: React.FC = () => {
             <div>
               <Input
                 label="Google Maps Pin / Location Link (Optional)"
-                placeholder="e.g., https://maps.app.goo.gl/..."
+                placeholder="e.g., https://maps.app.goo.gl/... or maps.google.com/..."
                 value={formData.map_pin_url}
-                onChange={(e) => setFormData({ ...formData, map_pin_url: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, map_pin_url: e.target.value });
+                  if (fieldErrors.map_pin_url) {
+                    setFieldErrors((prev) => {
+                      const copy = { ...prev };
+                      delete copy.map_pin_url;
+                      return copy;
+                    });
+                  }
+                }}
+                error={fieldErrors.map_pin_url}
                 helperText="Optional GPS link to help truck driver locate site accurately."
               />
             </div>

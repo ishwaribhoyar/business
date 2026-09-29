@@ -34,7 +34,14 @@ class ApiClient {
       const data: ApiResponse<T> = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error?.message || `Request failed with status ${response.status}`);
+        let errorMsg = data.error?.message || `Request failed with status ${response.status}`;
+        if (data.error?.details && Array.isArray(data.error.details) && data.error.details.length > 0) {
+          const detailMsgs = data.error.details.map((d: any) => d.message || `${d.field}: invalid`);
+          errorMsg = detailMsgs.join('. ');
+        }
+        const err = new Error(errorMsg);
+        (err as any).details = data.error?.details;
+        throw err;
       }
 
       return data;
