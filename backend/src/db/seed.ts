@@ -431,6 +431,202 @@ export function runSeeds(db?: DatabaseSync): void {
   }
 
   Logger.info('Phase 3 Hierarchical Categories and Variants successfully seeded.');
+
+  // 4. Seed Verified Logistics Partners (Suppliers, Drivers, Trucks for Nagpur)
+  const mvpSuppliers = [
+    {
+      id: 'sup_nagpur_sand_01',
+      business_name: 'MahaLaxmi River Sand & Aggregate Hub',
+      contact_person: 'Rajesh Gaikwad',
+      mobile_number: '9822001122',
+      location_address: 'Wadi Bypass, Amravati Road, Nagpur',
+      service_zones: 'Nagpur Metro, Wadi, Hingna, Besa, Dharampeth',
+      supported_materials: JSON.stringify(['Sand', 'Black Stone / Aggregate']),
+      verification_status: 'VERIFIED',
+      indicative_purchase_price: 4500,
+      price_updated_at: now,
+      quality_notes: 'Government royalty certified Kanhan river sand and basalt aggregate.',
+      fulfillment_notes: 'Equipped with electronic weighbridge. Dispatches within 3 hours.',
+    },
+    {
+      id: 'sup_nagpur_bricks_02',
+      business_name: 'Vidarbha Red Kiln & Fly Ash Depot',
+      contact_person: 'Sunil Meshram',
+      mobile_number: '9822003344',
+      location_address: 'Old Kamptee Road, Kalamna, Nagpur',
+      service_zones: 'Nagpur City, Kamptee, Itwari, Lakadganj, Pardi',
+      supported_materials: JSON.stringify(['Bricks']),
+      verification_status: 'VERIFIED',
+      indicative_purchase_price: 8.5,
+      price_updated_at: now,
+      quality_notes: 'High compressive strength red clay kiln bricks and auto-moulded fly ash bricks.',
+      fulfillment_notes: 'Manual loading team on site. Direct tipper loading available.',
+    },
+    {
+      id: 'sup_nagpur_quarry_03',
+      business_name: 'Hingna Basalt Stone Quarry & Crushing Plant',
+      contact_person: 'Pravin Patil',
+      mobile_number: '9822005566',
+      location_address: 'Survey No. 42, Hingna MIDC, Nagpur',
+      service_zones: 'Nagpur South, Hingna, Butibori, Wardha Road, Besa',
+      supported_materials: JSON.stringify(['Black Stone / Aggregate', 'Murum']),
+      verification_status: 'VERIFIED',
+      indicative_purchase_price: 3200,
+      price_updated_at: now,
+      quality_notes: '20mm & 40mm crushed basalt metal stone, plus plinth grade hard murum.',
+      fulfillment_notes: '24/7 quarry loading chute. High capacity tipper loading in 15 mins.',
+    },
+  ];
+
+  const insertSupplier = activeDb.prepare(`
+    INSERT OR IGNORE INTO suppliers (
+      id, business_name, contact_person, mobile_number, location_address,
+      service_zones, supported_materials, verification_status, indicative_purchase_price,
+      price_updated_at, quality_notes, fulfillment_notes, is_active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+  `);
+
+  for (const s of mvpSuppliers) {
+    insertSupplier.run(
+      s.id,
+      s.business_name,
+      s.contact_person,
+      s.mobile_number,
+      s.location_address,
+      s.service_zones,
+      s.supported_materials,
+      s.verification_status,
+      s.indicative_purchase_price,
+      s.price_updated_at,
+      s.quality_notes,
+      s.fulfillment_notes,
+      now,
+      now
+    );
+  }
+
+  // 5. Seed Drivers
+  const mvpDrivers = [
+    {
+      id: 'drv_nagpur_01',
+      full_name: 'Ramesh Shinde',
+      mobile_number: '9890112233',
+      license_number: 'MH-31-DL-44821',
+      verification_status: 'VERIFIED',
+      availability_status: 'Available',
+      notes: 'Experienced heavy tipper commercial driver (12+ years in Nagpur region).',
+    },
+    {
+      id: 'drv_nagpur_02',
+      full_name: 'Vinod Thakre',
+      mobile_number: '9890223344',
+      license_number: 'MH-31-DL-88319',
+      verification_status: 'VERIFIED',
+      availability_status: 'Available',
+      notes: 'Specialist in 10-ton medium tipper city deliveries with tight site access.',
+    },
+    {
+      id: 'drv_nagpur_03',
+      full_name: 'Sanjay Wankhede',
+      mobile_number: '9890334455',
+      license_number: 'MH-31-DL-11042',
+      verification_status: 'VERIFIED',
+      availability_status: 'Available',
+      notes: 'Multi-axle heavy dumper driver with valid commercial HazMat & mining pass.',
+    },
+  ];
+
+  const insertDriver = activeDb.prepare(`
+    INSERT OR IGNORE INTO drivers (
+      id, full_name, mobile_number, license_number, verification_status,
+      availability_status, notes, is_active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+  `);
+
+  for (const d of mvpDrivers) {
+    insertDriver.run(
+      d.id,
+      d.full_name,
+      d.mobile_number,
+      d.license_number,
+      d.verification_status,
+      d.availability_status,
+      d.notes,
+      now,
+      now
+    );
+  }
+
+  // 6. Seed Partner Trucks
+  const mvpTrucks = [
+    {
+      id: 'trk_nagpur_16t_01',
+      registration_number: 'MH-31-CQ-8821',
+      capacity_tons: 16.0,
+      supported_materials: JSON.stringify(['Sand', 'Black Stone / Aggregate', 'Murum']),
+      owner_name: 'Nagpur Express Logistics (Anil Verma)',
+      owner_mobile: '9890445566',
+      default_driver_id: 'drv_nagpur_01',
+      availability_status: 'Available',
+      indicative_transport_rate: 1200,
+      verification_status: 'VERIFIED',
+      notes: '16-ton hydraulic 10-wheeler tipper. Excellent condition with GPS tracking.',
+    },
+    {
+      id: 'trk_nagpur_10t_02',
+      registration_number: 'MH-31-DZ-4190',
+      capacity_tons: 10.0,
+      supported_materials: JSON.stringify(['Sand', 'Bricks', 'Black Stone / Aggregate']),
+      owner_name: 'Vidarbha Bulk Carriers (Manoj Kale)',
+      owner_mobile: '9890556677',
+      default_driver_id: 'drv_nagpur_02',
+      availability_status: 'Available',
+      indicative_transport_rate: 950,
+      verification_status: 'VERIFIED',
+      notes: '6-wheeler medium tipper with drop-sides, ideal for narrow residential street delivery.',
+    },
+    {
+      id: 'trk_nagpur_25t_03',
+      registration_number: 'MH-40-Y-1152',
+      capacity_tons: 25.0,
+      supported_materials: JSON.stringify(['Black Stone / Aggregate', 'Murum']),
+      owner_name: 'Central India Heavy Haulage',
+      owner_mobile: '9890667788',
+      default_driver_id: 'drv_nagpur_03',
+      availability_status: 'Available',
+      indicative_transport_rate: 1800,
+      verification_status: 'VERIFIED',
+      notes: 'Heavy multi-axle dumper for bulk commercial excavation and road projects.',
+    },
+  ];
+
+  const insertTruck = activeDb.prepare(`
+    INSERT OR IGNORE INTO trucks (
+      id, registration_number, capacity_tons, supported_materials, owner_name,
+      owner_mobile, default_driver_id, availability_status, indicative_transport_rate,
+      verification_status, notes, is_active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+  `);
+
+  for (const t of mvpTrucks) {
+    insertTruck.run(
+      t.id,
+      t.registration_number,
+      t.capacity_tons,
+      t.supported_materials,
+      t.owner_name,
+      t.owner_mobile,
+      t.default_driver_id,
+      t.availability_status,
+      t.indicative_transport_rate,
+      t.verification_status,
+      t.notes,
+      now,
+      now
+    );
+  }
+
+  Logger.info('Logistics fleet & verified suppliers successfully seeded.');
 }
 
 // Direct execution from CLI

@@ -72,6 +72,18 @@ export function runMigrations(db?: DatabaseSync): void {
       // Column may already exist
     }
 
+    // Safely drop legacy embedded driver columns from trucks if present
+    try {
+      activeDb.exec('ALTER TABLE trucks DROP COLUMN driver_name;');
+    } catch {
+      // Column may not exist
+    }
+    try {
+      activeDb.exec('ALTER TABLE trucks DROP COLUMN driver_mobile;');
+    } catch {
+      // Column may not exist
+    }
+
     const insertStmt = activeDb.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)');
     insertStmt.run('002_decouple_drivers', new Date().toISOString());
     Logger.info('Successfully applied migration: 002_decouple_drivers');

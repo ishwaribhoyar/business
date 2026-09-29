@@ -62,6 +62,15 @@ export const OrderDetailPage: React.FC = () => {
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [fulfillmentWarning, setFulfillmentWarning] = useState<string | null>(null);
 
+  // Quick Fulfillment Assignment modal state
+  const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
+  const [modalSupplierId, setModalSupplierId] = useState('');
+  const [modalTruckId, setModalTruckId] = useState('');
+  const [modalAutoAssignDriver, setModalAutoAssignDriver] = useState(true);
+  const [modalDriverId, setModalDriverId] = useState('');
+  const [modalAdvanceStatus, setModalAdvanceStatus] = useState(true);
+  const [isSavingFulfillment, setIsSavingFulfillment] = useState(false);
+
   // Payment form state
   const [paymentForm, setPaymentForm] = useState<RecordPaymentPayload>({
     amount: 0,
@@ -248,6 +257,63 @@ export const OrderDetailPage: React.FC = () => {
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign driver');
+    }
+  };
+
+  const openFulfillmentModal = () => {
+    if (!data) return;
+    setModalSupplierId(data.order.supplier_id || selectedSupplierId || (suppliers[0]?.id ?? ''));
+    setModalTruckId(data.order.truck_id || selectedTruckId || (trucks[0]?.id ?? ''));
+    setModalAutoAssignDriver(true);
+    setModalDriverId(data.order.driver_id || selectedDriverId || (drivers[0]?.id ?? ''));
+    setModalAdvanceStatus(data.order.status === 'CONFIRMED');
+    setShowFulfillmentModal(true);
+  };
+
+  const handleFulfillmentModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalSupplierId) {
+      setError('Please select a verified sourcing partner (supplier).');
+      return;
+    }
+    setIsSavingFulfillment(true);
+    setError(null);
+    try {
+      // 1. Assign Supplier
+      await adminService.assignSupplier(order.id, modalSupplierId);
+
+      // 2. Assign Truck if chosen
+      if (modalTruckId) {
+        await adminService.assignTruck(order.id, modalTruckId, modalAutoAssignDriver);
+      }
+
+      // 3. Assign Driver if explicitly chosen without auto-assign
+      if (!modalAutoAssignDriver && modalDriverId) {
+        await adminService.assignDriver(order.id, modalDriverId);
+      }
+
+      // 4. Advance status if requested and current status is CONFIRMED
+      if (modalAdvanceStatus && order.status === 'CONFIRMED') {
+        await adminService.updateOrderStatus(
+          order.id,
+          'SUPPLIER_ASSIGNED',
+          undefined,
+          'Sourcing partner & logistics fleet assigned via fulfillment hub'
+        );
+      }
+
+      setShowFulfillmentModal(false);
+      setActionSuccess('Fulfillment partner & logistics fleet assigned successfully.');
+      setActiveTab('fulfillment');
+      loadData();
+      setTimeout(() => {
+        setActionSuccess(null);
+        document.getElementById('fulfillment-tab-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 400);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fulfillment assignment failed');
+    } finally {
+      setIsSavingFulfillment(false);
     }
   };
 
@@ -462,31 +528,38 @@ export const OrderDetailPage: React.FC = () => {
             {order.status === 'CONFIRMED' && (
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('fulfillment');
-                  if (order.supplier_id) {
-                    handleTransition('SUPPLIER_ASSIGNED', 'Supplier confirmed for delivery');
-                  }
-                }}
-                className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-xs transition-colors"
+                onClick={openFulfillmentModal}
+                className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
               >
+                <TruckIcon className="h-4 w-4" />
                 Assign Supplier & Logistics →
               </button>
             )}
 
             {order.status === 'SUPPLIER_ASSIGNED' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('fulfillment');
-                  if (order.truck_id) {
-                    handleTransition('TRUCK_ASSIGNED', 'Truck assigned for dispatch');
-                  }
-                }}
-                className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-xs transition-colors"
-              >
-                Confirm Truck & Driver →
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (order.truck_id) {
+                      handleTransition('TRUCK_ASSIGNED', 'Truck assigned for dispatch');
+                    } else {
+                      openFulfillmentModal();
+                    }
+                  }}
+                  className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <TruckIcon className="h-4 w-4" />
+                  {order.truck_id ? 'Confirm Truck & Driver Dispatch Ready →' : 'Assign Partner Truck & Driver →'}
+                </button>
+                <button
+                  type="button"
+                  onClick={openFulfillmentModal}
+                  className="text-xs font-semibold text-slate-700 border border-slate-300 hover:bg-white px-3 py-2 rounded-xl transition-colors"
+                >
+                  Edit Sourcing / Fleet
+                </button>
+              </div>
             )}
 
             {order.status === 'TRUCK_ASSIGNED' && (
@@ -967,7 +1040,25 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* TAB 2: Fulfillment Logistics */}
       {activeTab === 'fulfillment' && (
-        <div className="space-y-6">
+        <div id="fulfillment-tab-section" className="space-y-6">
+          {/* Quick Assign Action Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 p-4 rounded-2xl">
+            <div>
+              <h4 className="text-xs font-bold text-amber-950">Nagpur Fulfillment & Logistics Hub</h4>
+              <p className="text-[11px] text-amber-800">
+                Assign a verified local quarry/yard supplier, dedicated partner transport vehicle, and driver.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openFulfillmentModal}
+              className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+            >
+              <TruckIcon className="h-4 w-4" />
+              Quick Assign Sourcing & Fleet Modal →
+            </button>
+          </div>
+
           {fulfillmentWarning && (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
@@ -996,6 +1087,26 @@ export const OrderDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">No supplier assigned yet.</p>
+              )}
+
+              {suppliers.length === 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                  No verified suppliers found in registry.
+                  <Link to="/admin/suppliers" className="font-bold underline ml-1">Manage Suppliers</Link>
+                </div>
+              )}
+
+              {order.status === 'CONFIRMED' && order.supplier_id && (
+                <div className="mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-emerald-800">Partner confirmed.</span>
+                  <button
+                    type="button"
+                    onClick={() => handleTransition('SUPPLIER_ASSIGNED', 'Supplier confirmed for delivery')}
+                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Advance to SUPPLIER_ASSIGNED →
+                  </button>
+                </div>
               )}
 
               <div className="space-y-2 pt-2">
@@ -1041,6 +1152,26 @@ export const OrderDetailPage: React.FC = () => {
                 <p className="text-xs text-slate-500">No vehicle assigned yet.</p>
               )}
 
+              {trucks.length === 0 && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+                  No vehicles found in partner fleet.
+                  <Link to="/admin/trucks" className="font-bold underline ml-1">Manage Fleet</Link>
+                </div>
+              )}
+
+              {order.status === 'SUPPLIER_ASSIGNED' && order.truck_id && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-blue-800">Vehicle confirmed.</span>
+                  <button
+                    type="button"
+                    onClick={() => handleTransition('TRUCK_ASSIGNED', 'Truck assigned for dispatch')}
+                    className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Advance to TRUCK_ASSIGNED →
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-2 pt-2">
                 <label className="block text-xs font-semibold text-slate-700">Select Partner Vehicle</label>
                 <select
@@ -1056,7 +1187,7 @@ export const OrderDetailPage: React.FC = () => {
                   ))}
                 </select>
 
-                <label className="flex items-center gap-2 text-xs text-slate-600 py-1">
+                <label className="flex items-center gap-2 text-xs text-slate-600 py-1 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={autoAssignDriver}
@@ -1093,6 +1224,13 @@ export const OrderDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">No driver assigned yet.</p>
+              )}
+
+              {drivers.length === 0 && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                  No drivers found in partner registry.
+                  <Link to="/admin/trucks" className="font-bold underline ml-1">Manage Drivers</Link>
+                </div>
               )}
 
               <div className="space-y-2 pt-2">
@@ -1424,6 +1562,186 @@ export const OrderDetailPage: React.FC = () => {
                   className="px-5 py-2 font-bold bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded-xl shadow-xs transition-colors"
                 >
                   {isCancelling ? 'Cancelling...' : 'Confirm Order Cancellation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Fulfillment Quick Assignment Modal */}
+      {showFulfillmentModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <TruckIcon className="h-5 w-5 text-amber-600" />
+                  Assign Supplier & Logistics
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Order <span className="font-mono font-bold text-slate-700">{order.order_reference}</span> • {order.quantity} {order.unit} {variantDisplayName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFulfillmentModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleFulfillmentModalSubmit} className="space-y-5 text-xs">
+              {/* Step 1: Supplier */}
+              <div className="space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <label className="block font-bold text-slate-800 flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4 text-amber-600" />
+                  1. Sourcing Partner (Supplier) <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={modalSupplierId}
+                  onChange={(e) => setModalSupplierId(e.target.value)}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                >
+                  <option value="">Select Verified Supplier...</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.business_name} — {s.location_address}
+                    </option>
+                  ))}
+                </select>
+
+                {modalSupplierId && (
+                  (() => {
+                    const sup = suppliers.find((s) => s.id === modalSupplierId);
+                    if (!sup) return null;
+                    return (
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                        <div className="font-bold text-slate-900">{sup.business_name}</div>
+                        <div>Contact: {sup.contact_person} ({sup.mobile_number})</div>
+                        <div>Location: {sup.location_address}</div>
+                        {sup.indicative_purchase_price && (
+                          <div className="text-emerald-700 font-semibold">Indicative Purchase Price: ₹{sup.indicative_purchase_price}</div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
+                {suppliers.length === 0 && (
+                  <p className="text-amber-700 text-[11px]">
+                    No suppliers found. Please <Link to="/admin/suppliers" className="underline font-bold">add a supplier</Link> first.
+                  </p>
+                )}
+              </div>
+
+              {/* Step 2: Truck */}
+              <div className="space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <label className="block font-bold text-slate-800 flex items-center gap-1.5">
+                  <TruckIcon className="h-4 w-4 text-blue-600" />
+                  2. Delivery Vehicle (Partner Truck) <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <select
+                  value={modalTruckId}
+                  onChange={(e) => {
+                    const trkId = e.target.value;
+                    setModalTruckId(trkId);
+                    if (trkId && modalAutoAssignDriver) {
+                      const trk = trucks.find((t) => t.id === trkId);
+                      if (trk?.default_driver_id) {
+                        setModalDriverId(trk.default_driver_id);
+                      }
+                    }
+                  }}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                >
+                  <option value="">Select Transport Truck (or assign later)...</option>
+                  {trucks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.registration_number} ({t.capacity_tons}T Tipper - {t.availability_status})
+                    </option>
+                  ))}
+                </select>
+
+                {modalTruckId && (
+                  <label className="flex items-center gap-2 text-xs text-slate-700 pt-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={modalAutoAssignDriver}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setModalAutoAssignDriver(checked);
+                        if (checked && modalTruckId) {
+                          const trk = trucks.find((t) => t.id === modalTruckId);
+                          if (trk?.default_driver_id) {
+                            setModalDriverId(trk.default_driver_id);
+                          }
+                        }
+                      }}
+                      className="rounded text-amber-600"
+                    />
+                    <span>Auto-assign vehicle's registered default driver</span>
+                  </label>
+                )}
+              </div>
+
+              {/* Step 3: Driver */}
+              {(!modalAutoAssignDriver || !modalTruckId) && (
+                <div className="space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <label className="block font-bold text-slate-800 flex items-center gap-1.5">
+                    <User className="h-4 w-4 text-emerald-600" />
+                    3. Assigned Driver Partner <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <select
+                    value={modalDriverId}
+                    onChange={(e) => setModalDriverId(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  >
+                    <option value="">Select Driver Partner (or assign later)...</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.full_name} ({d.mobile_number} - {d.availability_status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Step 4: Advance status checkbox */}
+              {order.status === 'CONFIRMED' && (
+                <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={modalAdvanceStatus}
+                      onChange={(e) => setModalAdvanceStatus(e.target.checked)}
+                      className="rounded text-amber-600 mt-0.5"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-amber-950 block">Advance Order Status to 'SUPPLIER_ASSIGNED'</span>
+                      <span className="text-[11px] text-amber-800 block">
+                        Transitions state machine so logistics dispatch can begin.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowFulfillmentModal(false)}
+                  className="px-4 py-2.5 border border-slate-300 rounded-xl hover:bg-slate-50 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingFulfillment || !modalSupplierId}
+                  className="px-6 py-2.5 font-bold bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-xl shadow-xs transition-colors flex items-center gap-2"
+                >
+                  {isSavingFulfillment ? 'Saving Assignment...' : 'Save & Confirm Assignment →'}
                 </button>
               </div>
             </form>
