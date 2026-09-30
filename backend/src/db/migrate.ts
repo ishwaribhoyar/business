@@ -23,8 +23,22 @@ export function runMigrations(db?: DatabaseSync): void {
   const applied001 = checkStmt001.get() as { version: string } | undefined;
 
   if (!applied001) {
-    Logger.info('Applying migration: 001_baseline_schema...');
-    const schemaPath = path.resolve(__dirname, 'schema.sql');
+    let schemaPath = path.resolve(__dirname, 'schema.sql');
+    if (!fs.existsSync(schemaPath)) {
+      const candidates = [
+        path.resolve(__dirname, '../../src/db/schema.sql'),
+        path.resolve(__dirname, '../schema.sql'),
+        path.resolve(process.cwd(), 'src/db/schema.sql'),
+        path.resolve(process.cwd(), 'backend/src/db/schema.sql'),
+        path.resolve(process.cwd(), 'dist/db/schema.sql'),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          schemaPath = candidate;
+          break;
+        }
+      }
+    }
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
     activeDb.exec(schemaSql);
     const insertStmt = activeDb.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)');

@@ -38,11 +38,28 @@ export async function runPgMigrations(poolInstance?: pg.Pool): Promise<Migration
     const res = await client.query<{ version: string }>('SELECT version FROM schema_migrations ORDER BY id ASC');
     const appliedVersions = new Set(res.rows.map((r) => r.version));
 
-    // 3. Scan migrations directory
-    const migrationsDir = path.resolve(__dirname, 'migrations/pg');
+    // 3. Scan migrations directory with fallbacks
+    let migrationsDir = path.resolve(__dirname, 'migrations/pg');
     if (!fs.existsSync(migrationsDir)) {
-      Logger.warn(`Migrations directory does not exist: ${migrationsDir}`);
-      return { applied, alreadyApplied: Array.from(appliedVersions) };
+      const candidates = [
+        path.resolve(__dirname, '../../src/db/migrations/pg'),
+        path.resolve(__dirname, '../migrations/pg'),
+        path.resolve(process.cwd(), 'src/db/migrations/pg'),
+        path.resolve(process.cwd(), 'backend/src/db/migrations/pg'),
+        path.resolve(process.cwd(), 'dist/db/migrations/pg'),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          migrationsDir = candidate;
+          break;
+        }
+      }
+    }
+
+    if (!fs.existsSync(migrationsDir)) {
+      const errorMsg = `FATAL: PostgreSQL migrations directory not found. Checked: ${migrationsDir}`;
+      Logger.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     const files = fs
