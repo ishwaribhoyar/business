@@ -29,7 +29,12 @@ export function createApp(): Express {
       origin: (origin, callback) => {
         // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.has(origin) || !config.isProduction) {
+        if (
+          allowedOrigins.has('*') ||
+          allowedOrigins.has(origin) ||
+          origin.endsWith('.onrender.com') ||
+          !config.isProduction
+        ) {
           return callback(null, true);
         }
         return callback(new Error(`Origin '${origin}' not allowed by CORS policy.`));
@@ -113,8 +118,9 @@ export function createApp(): Express {
   app.use('/health', healthRoutes);
   app.get('/ready', HealthController.getReadiness);
 
-  // 7. Versioned API Routes (/api/v1)
+  // 7. Versioned API Routes (/api/v1) and un-prefixed alias
   app.use('/api/v1', apiV1Routes);
+  app.use('/', apiV1Routes);
 
   // 8. Unmatched Route Handler (404)
   app.use((req, _res, next) => {
