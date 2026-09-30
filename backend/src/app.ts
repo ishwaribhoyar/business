@@ -97,6 +97,19 @@ export function createApp(): Express {
   }
 
   // 6. Root & Health/Readiness Check Routes
+  app.get('/', (_req, res) => {
+    res.json({
+      success: true,
+      service: 'nagpur-materials-marketplace-api',
+      status: 'ONLINE',
+      version: '1.0.0',
+      endpoints: {
+        health: '/health',
+        ready: '/ready',
+        catalog: '/api/v1/catalog/categories',
+      },
+    });
+  });
   app.use('/health', healthRoutes);
   app.get('/ready', HealthController.getReadiness);
 
