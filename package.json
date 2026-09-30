@@ -7,7 +7,7 @@
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "build:backend": "npm --prefix backend run build",
-    "build:frontend": "npm --prefix frontend run build",
+    "build:frontend": "npm --prefix frontend run build && node -e \"const fs = require('fs'); fs.cpSync('frontend/dist', 'dist', {recursive: true, force: true})\"",
     "build": "npm run build:backend && npm run build:frontend",
     "test:backend": "npm --prefix backend run test",
     "test": "npm run test:backend",
@@ -16,6 +16,7 @@
     "migrate:data": "npm --prefix backend run migrate:data",
     "bootstrap:admin": "npm --prefix backend run bootstrap:admin",
     "seed": "npm --prefix backend run seed",
+    "start": "node dist/server.js || npx serve -s dist -l 10000",
     "start:backend": "npm --prefix backend run start"
   },
   "keywords": [
