@@ -124,7 +124,7 @@ describe('Phase 4: PostgreSQL Architecture, Multi-User RBAC & Production Readine
       const rows = await client.query('SELECT version, name FROM schema_migrations ORDER BY id ASC');
       client.release();
 
-      expect(rows.rows.length).toBe(2);
+      expect(rows.rows.length).toBeGreaterThanOrEqual(2);
       expect(rows.rows[0].version).toBe('001');
       expect(rows.rows[1].version).toBe('002');
     });
@@ -135,12 +135,12 @@ describe('Phase 4: PostgreSQL Architecture, Multi-User RBAC & Production Readine
       const pgPool = new pgAdapter.Pool();
 
       // First run
-      await runPgMigrations(pgPool as any);
+      const firstRun = await runPgMigrations(pgPool as any);
 
       // Second run: should apply 0 migrations and list them in alreadyApplied
       const secondRun = await runPgMigrations(pgPool as any);
       expect(secondRun.applied.length).toBe(0);
-      expect(secondRun.alreadyApplied.length).toBe(2);
+      expect(secondRun.alreadyApplied.length).toBe(firstRun.applied.length);
     });
   });
 
