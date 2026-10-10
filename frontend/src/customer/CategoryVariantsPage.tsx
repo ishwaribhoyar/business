@@ -6,7 +6,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner.js';
 import { Alert } from '../components/Alert.js';
 import { usePageMeta } from '../hooks/usePageMeta.js';
 import { VariantImage } from '../components/VariantImage.js';
-import { getProductPricingTiers } from '../utils/pricingTiers.js';
+import { getProductPricingTiers, resolveVariantPrice } from '../utils/pricingTiers.js';
 import {
   ArrowLeft,
   ArrowRight,
@@ -118,43 +118,53 @@ export const CategoryVariantsPage: React.FC = () => {
                 </span>
               </div>
 
-              {variant.indicative_price != null && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
-                        Base Rate
-                      </span>
-                      <span className="text-sm font-extrabold text-emerald-900">
-                        ₹{Number(variant.indicative_price).toLocaleString('en-IN')}{' '}
-                        <span className="text-xs font-normal text-emerald-700">/ {variant.unit}</span>
+              {(() => {
+                const effectivePrice = resolveVariantPrice(variant.indicative_price, variant.slug || variant.id);
+                if (!effectivePrice) return null;
+                const breakdown = getProductPricingTiers(effectivePrice, variant.unit, variant.min_quantity, variant.slug);
+
+                return (
+                  <div className="space-y-2 bg-gradient-to-b from-amber-50/40 to-slate-50 border border-amber-200 rounded-2xl p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
+                          Base Benchmark Rate
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-base sm:text-lg font-black text-slate-900">
+                            ₹{effectivePrice.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-600">
+                            / {variant.unit}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-300 font-bold uppercase tracking-wider">
+                        Ex-Quarry
                       </span>
                     </div>
-                    <span className="text-[10px] text-emerald-700 bg-white/80 px-2 py-0.5 rounded border border-emerald-200 font-medium">
-                      Ex-Quarry
-                    </span>
-                  </div>
 
-                  {/* D2C Volume Tier Pricing Pills */}
-                  {(() => {
-                    const breakdown = getProductPricingTiers(variant.indicative_price, variant.unit, variant.min_quantity);
-                    if (!breakdown) return null;
-                    return (
-                      <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-2.5 space-y-1.5">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-amber-900">
-                          <span className="flex items-center gap-1">
+                    {/* D2C Wholesale Quantity Tiers Preview */}
+                    {breakdown && (
+                      <div className="pt-2 border-t border-amber-200/60 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                          <span className="flex items-center gap-1 text-amber-900">
                             <Tag className="h-3 w-3 text-amber-600" />
-                            <span>D2C Volume Rates</span>
+                            <span>D2C Wholesale Quantity Rates:</span>
                           </span>
-                          <span className="text-emerald-700 font-extrabold">Save up to 10%</span>
+                          <span className="text-emerald-700 font-extrabold text-[10px] bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            Save up to 10%
+                          </span>
                         </div>
                         <div className="grid grid-cols-2 gap-1.5">
                           {breakdown.tiers.slice(1, 3).map((tier) => (
                             <div
                               key={tier.quantity}
-                              className="bg-white border border-amber-200 rounded-lg px-2 py-1 text-[10px] flex items-center justify-between"
+                              className="bg-white border border-slate-200 hover:border-amber-300 rounded-lg p-1.5 text-[11px] flex items-center justify-between shadow-2xs"
                             >
-                              <span className="text-slate-600 font-medium">{tier.quantity} {variant.unit}:</span>
+                              <span className="text-slate-600 font-medium">
+                                {tier.quantity} {variant.unit}:
+                              </span>
                               <span className="font-extrabold text-slate-900">
                                 ₹{tier.perUnitPrice.toLocaleString('en-IN')}
                               </span>
@@ -162,10 +172,10 @@ export const CategoryVariantsPage: React.FC = () => {
                           ))}
                         </div>
                       </div>
-                    );
-                  })()}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
 
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{variant.name}</h2>

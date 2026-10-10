@@ -7,6 +7,7 @@ import { usePageMeta } from '../hooks/usePageMeta.js';
 import { APP_CONFIG } from '../config/index.js';
 import { VariantImage } from '../components/VariantImage.js';
 import { QuantityPricingSelector } from '../components/QuantityPricingSelector.js';
+import { resolveVariantPrice } from '../utils/pricingTiers.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -139,39 +140,43 @@ export const VariantDetailPage: React.FC = () => {
               {variant.short_description}
             </p>
 
-            <div className={`grid ${variant.indicative_price != null ? 'grid-cols-3' : 'grid-cols-2'} gap-3 pt-2`}>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">Standard Unit</span>
-                <span className="text-sm font-bold text-slate-900">{variant.unit}</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">Minimum Order</span>
-                <span className="text-sm font-bold text-slate-900">
-                  {variant.min_quantity} {variant.unit}
-                </span>
-              </div>
-              {variant.indicative_price != null && (
-                <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
-                  <span className="text-[11px] text-emerald-800 font-bold block uppercase tracking-wider">
-                    Indicative Rate
-                  </span>
-                  <span className="text-sm font-extrabold text-emerald-950">
-                    ₹{Number(variant.indicative_price).toLocaleString('en-IN')}/{variant.unit}
-                  </span>
+            {(() => {
+              const effectivePrice = resolveVariantPrice(variant.indicative_price, variant.slug || variant.id);
+              return (
+                <div className={`grid ${effectivePrice > 0 ? 'grid-cols-3' : 'grid-cols-2'} gap-3 pt-2`}>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[11px] text-slate-500 font-medium block">Standard Unit</span>
+                    <span className="text-sm font-bold text-slate-900">{variant.unit}</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[11px] text-slate-500 font-medium block">Minimum Order</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {variant.min_quantity} {variant.unit}
+                    </span>
+                  </div>
+                  {effectivePrice > 0 && (
+                    <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                      <span className="text-[11px] text-emerald-800 font-bold block uppercase tracking-wider">
+                        Indicative Rate
+                      </span>
+                      <span className="text-sm font-extrabold text-emerald-950">
+                        ₹{effectivePrice.toLocaleString('en-IN')}/{variant.unit}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         </div>
 
         {/* D2C Quantity-Tier Pricing Selector */}
-        {variant.indicative_price != null && (
-          <QuantityPricingSelector
-            indicativePrice={variant.indicative_price}
-            unit={variant.unit}
-            minQuantity={variant.min_quantity}
-          />
-        )}
+        <QuantityPricingSelector
+          indicativePrice={variant.indicative_price}
+          unit={variant.unit}
+          minQuantity={variant.min_quantity}
+          slugOrId={variant.slug || variant.id}
+        />
 
         {/* Detailed Description */}
         {variant.detailed_description && (

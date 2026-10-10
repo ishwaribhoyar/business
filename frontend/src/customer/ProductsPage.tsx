@@ -8,6 +8,7 @@ import { usePageMeta } from '../hooks/usePageMeta.js';
 import { ArrowRight, Layers, PackageCheck, CheckCircle2 } from 'lucide-react';
 import { APP_CONFIG } from '../config/index.js';
 import { VariantImage } from '../components/VariantImage.js';
+import { resolveVariantPrice } from '../utils/pricingTiers.js';
 
 export const ProductsPage: React.FC = () => {
   usePageMeta(
@@ -233,20 +234,23 @@ export const ProductsPage: React.FC = () => {
                     Available Subtypes & Variants
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {category.variants.map((v) => (
-                      <Link
-                        key={v.id}
-                        to={`/products/${category.slug}/${v.slug}`}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-lg transition-colors border border-slate-200"
-                      >
-                        <span>{v.name}</span>
-                        {v.indicative_price != null && (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                            ₹{Number(v.indicative_price).toLocaleString('en-IN')}/{v.unit}
-                          </span>
-                        )}
-                      </Link>
-                    ))}
+                    {category.variants.map((v) => {
+                      const price = resolveVariantPrice(v.indicative_price, v.slug || v.id);
+                      return (
+                        <Link
+                          key={v.id}
+                          to={`/products/${category.slug}/${v.slug}`}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-lg transition-colors border border-slate-200"
+                        >
+                          <span>{v.name}</span>
+                          {price > 0 && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                              ₹{price.toLocaleString('en-IN')}/{v.unit}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -20,6 +20,7 @@ import {
   Layers,
   ChevronRight,
 } from 'lucide-react';
+import { resolveVariantPrice } from '../utils/pricingTiers.js';
 
 export const HomePage: React.FC = () => {
   usePageMeta(
@@ -231,19 +232,22 @@ export const HomePage: React.FC = () => {
                       Available Subtypes:
                     </span>
                     <div className="flex flex-wrap gap-1">
-                      {cat.variants.map((v: any) => (
-                        <span
-                          key={v.id}
-                          className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200"
-                        >
-                          <span>{v.name}</span>
-                          {v.indicative_price != null && (
-                            <span className="font-semibold text-emerald-700">
-                              (₹{Number(v.indicative_price).toLocaleString('en-IN')})
-                            </span>
-                          )}
-                        </span>
-                      ))}
+                      {cat.variants.map((v: any) => {
+                        const price = resolveVariantPrice(v.indicative_price, v.slug || v.id);
+                        return (
+                          <span
+                            key={v.id}
+                            className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200"
+                          >
+                            <span>{v.name}</span>
+                            {price > 0 && (
+                              <span className="font-semibold text-emerald-700">
+                                (₹{price.toLocaleString('en-IN')})
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

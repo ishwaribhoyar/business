@@ -6,6 +6,7 @@ interface QuantityPricingSelectorProps {
   indicativePrice: number | null | undefined;
   unit: string;
   minQuantity?: number;
+  slugOrId?: string;
   selectedQuantity?: number;
   onSelectQuantity?: (qty: number) => void;
   showSelectorOnly?: boolean;
@@ -15,10 +16,11 @@ export const QuantityPricingSelector: React.FC<QuantityPricingSelectorProps> = (
   indicativePrice,
   unit,
   minQuantity = 1,
+  slugOrId,
   selectedQuantity,
   onSelectQuantity,
 }) => {
-  const pricing = getProductPricingTiers(indicativePrice, unit, minQuantity);
+  const pricing = getProductPricingTiers(indicativePrice, unit, minQuantity, slugOrId);
 
   if (!pricing) return null;
 

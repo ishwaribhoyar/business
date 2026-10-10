@@ -26,7 +26,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { QuantityPricingSelector } from '../components/QuantityPricingSelector.js';
-import { calculateDynamicQuoteEstimate } from '../utils/pricingTiers.js';
+import { calculateDynamicQuoteEstimate, resolveVariantPrice } from '../utils/pricingTiers.js';
 
 export const QuoteOrderPage: React.FC = () => {
   usePageMeta(
@@ -606,11 +606,21 @@ export const QuoteOrderPage: React.FC = () => {
                   </Link>
                 )}
               </div>
-              {selectedVariant.indicative_price && (
-                <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
-                  <strong>Indicative Material Rate:</strong> ₹{selectedVariant.indicative_price.toLocaleString('en-IN')} per {selectedVariant.unit} (ex-quarry/factory rate. Final delivered price is quoted based on site haulage distance).
-                </div>
-              )}
+              {(() => {
+                const effectivePrice = resolveVariantPrice(selectedVariant.indicative_price, selectedVariant.slug || selectedVariant.id);
+                if (!effectivePrice) return null;
+                return (
+                  <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
+                    <span>
+                      <strong>Indicative Material Rate:</strong> ₹{effectivePrice.toLocaleString('en-IN')} per {selectedVariant.unit}{' '}
+                      <span className="text-slate-500">(ex-quarry/factory benchmark rate)</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded border border-emerald-300">
+                      Ex-Quarry
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -671,12 +681,13 @@ export const QuoteOrderPage: React.FC = () => {
           )}
 
           {/* D2C Quantity-Tier Quick Selector */}
-          {selectedVariant?.indicative_price && (
+          {selectedVariant && (
             <div className="mb-4">
               <QuantityPricingSelector
                 indicativePrice={selectedVariant.indicative_price}
                 unit={formData.unit}
                 minQuantity={selectedVariant.min_quantity}
+                slugOrId={selectedVariant.slug || selectedVariant.id}
                 selectedQuantity={formData.quantity}
                 onSelectQuantity={(qty) => {
                   setFormData({ ...formData, quantity: qty });
@@ -725,11 +736,12 @@ export const QuoteOrderPage: React.FC = () => {
           </div>
 
           {/* D2C Dynamic Price & Savings Summary Box */}
-          {selectedVariant?.indicative_price && formData.quantity > 0 && (() => {
+          {selectedVariant && formData.quantity > 0 && (() => {
             const estimate = calculateDynamicQuoteEstimate(
               selectedVariant.indicative_price,
               formData.quantity,
-              formData.unit
+              formData.unit,
+              selectedVariant.slug || selectedVariant.id
             );
             if (!estimate) return null;
             return (

@@ -16,6 +16,54 @@ export interface PricingBreakdown {
   tiers: QuantityTier[];
 }
 
+export const DEFAULT_VARIANT_PRICES: Record<string, number> = {
+  // Sand Variants
+  'var_sand_river': 6500,
+  'river-sand': 6500,
+  'var_sand_msand': 3800,
+  'm-sand': 3800,
+  'var_sand_dust': 1800,
+  'stone-dust': 1800,
+
+  // Bricks Variants
+  'var_brick_red': 9.0,
+  'red-clay-bricks': 9.0,
+  'var_brick_flyash': 6.5,
+  'fly-ash-bricks': 6.5,
+
+  // Black Stone / Aggregate Variants
+  'var_stone_20mm': 2400,
+  '20mm-aggregate': 2400,
+  'var_stone_10mm': 2300,
+  '10mm-aggregate': 2300,
+  'var_stone_40mm': 2600,
+  '40mm-aggregate': 2600,
+  'var_stone_gsb': 2000,
+  'gsb-crushed-mix': 2000,
+
+  // Murum Variants
+  'var_murum_yellow': 1400,
+  'yellow-murum': 1400,
+  'var_murum_red': 1600,
+  'red-bharda-murum': 1600,
+};
+
+/**
+ * Returns authoritative benchmark price for a variant, using live DB price or standard fallback
+ */
+export function resolveVariantPrice(
+  indicativePrice: number | null | undefined,
+  slugOrId?: string
+): number {
+  if (indicativePrice != null && Number(indicativePrice) > 0) {
+    return Number(indicativePrice);
+  }
+  if (slugOrId && DEFAULT_VARIANT_PRICES[slugOrId] != null) {
+    return DEFAULT_VARIANT_PRICES[slugOrId];
+  }
+  return 0;
+}
+
 /**
  * Calculates D2C-style volume pricing tiers based on standard Indian commercial construction units.
  * For bulk materials (Sand, Aggregates, Murum), orders are in Brass (1 Brass = 100 CFT ~ 3.8 - 4.2 Tonnes).
@@ -34,14 +82,16 @@ export interface PricingBreakdown {
 export function getProductPricingTiers(
   indicativePrice: number | null | undefined,
   unit: string,
-  minQuantity = 1
+  minQuantity = 1,
+  slugOrId?: string
 ): PricingBreakdown | null {
-  if (!indicativePrice || indicativePrice <= 0) return null;
+  const resolvedPrice = resolveVariantPrice(indicativePrice, slugOrId);
+  if (!resolvedPrice || resolvedPrice <= 0) return null;
 
   const isBricks = unit.toLowerCase().includes('piece');
 
   if (isBricks) {
-    const base = Number(indicativePrice); // e.g. 9 or 6.5 per piece
+    const base = resolvedPrice; // e.g. 9 or 6.5 per piece
     const tiers: QuantityTier[] = [
       {
         quantity: 1000,
@@ -91,7 +141,7 @@ export function getProductPricingTiers(
   }
 
   // Bulk aggregates, sand, and murum (Unit: Brass = 100 CFT)
-  const base = Number(indicativePrice);
+  const base = resolvedPrice;
   const tiers: QuantityTier[] = [
     {
       quantity: 1,
@@ -146,9 +196,11 @@ export function getProductPricingTiers(
 export function calculateDynamicQuoteEstimate(
   indicativePrice: number | null | undefined,
   quantity: number,
-  unit: string
+  unit: string,
+  slugOrId?: string
 ) {
-  if (!indicativePrice || !quantity || quantity <= 0) return null;
+  const price = resolveVariantPrice(indicativePrice, slugOrId);
+  if (!price || !quantity || quantity <= 0) return null;
 
   const isBricks = unit.toLowerCase().includes('piece');
   let discountRate = 0;
@@ -163,9 +215,9 @@ export function calculateDynamicQuoteEstimate(
     else if (quantity >= 2) discountRate = 0.025;
   }
 
-  const effectiveRate = Number((indicativePrice * (1 - discountRate)).toFixed(2));
+  const effectiveRate = Number((price * (1 - discountRate)).toFixed(2));
   const rawTotal = Math.round(quantity * effectiveRate);
-  const baseTotal = Math.round(quantity * indicativePrice);
+  const baseTotal = Math.round(quantity * price);
   const totalSavings = baseTotal - rawTotal;
 
   return {
