@@ -6,6 +6,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner.js';
 import { usePageMeta } from '../hooks/usePageMeta.js';
 import { APP_CONFIG } from '../config/index.js';
 import { VariantImage } from '../components/VariantImage.js';
+import { QuantityPricingSelector } from '../components/QuantityPricingSelector.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -162,6 +163,15 @@ export const VariantDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* D2C Quantity-Tier Pricing Selector */}
+        {variant.indicative_price != null && (
+          <QuantityPricingSelector
+            indicativePrice={variant.indicative_price}
+            unit={variant.unit}
+            minQuantity={variant.min_quantity}
+          />
+        )}
 
         {/* Detailed Description */}
         {variant.detailed_description && (

@@ -22,7 +22,11 @@ import {
   Clock,
   Layers,
   SlidersHorizontal,
+  Tag,
+  Sparkles,
 } from 'lucide-react';
+import { QuantityPricingSelector } from '../components/QuantityPricingSelector.js';
+import { calculateDynamicQuoteEstimate } from '../utils/pricingTiers.js';
 
 export const QuoteOrderPage: React.FC = () => {
   usePageMeta(
@@ -666,6 +670,26 @@ export const QuoteOrderPage: React.FC = () => {
             </div>
           )}
 
+          {/* D2C Quantity-Tier Quick Selector */}
+          {selectedVariant?.indicative_price && (
+            <div className="mb-4">
+              <QuantityPricingSelector
+                indicativePrice={selectedVariant.indicative_price}
+                unit={formData.unit}
+                minQuantity={selectedVariant.min_quantity}
+                selectedQuantity={formData.quantity}
+                onSelectQuantity={(qty) => {
+                  setFormData({ ...formData, quantity: qty });
+                  if (fieldErrors.quantity) {
+                    const updated = { ...fieldErrors };
+                    delete updated.quantity;
+                    setFieldErrors(updated);
+                  }
+                }}
+              />
+            </div>
+          )}
+
           {/* Quantity Input */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -699,6 +723,49 @@ export const QuoteOrderPage: React.FC = () => {
               <p className="mt-1 text-xs text-slate-400">Locked to standard commercial unit for this material.</p>
             </div>
           </div>
+
+          {/* D2C Dynamic Price & Savings Summary Box */}
+          {selectedVariant?.indicative_price && formData.quantity > 0 && (() => {
+            const estimate = calculateDynamicQuoteEstimate(
+              selectedVariant.indicative_price,
+              formData.quantity,
+              formData.unit
+            );
+            if (!estimate) return null;
+            return (
+              <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-amber-50/50 border border-emerald-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] uppercase tracking-wider font-extrabold text-emerald-800">
+                      Estimated Material Cost (Ex-Quarry)
+                    </span>
+                    {estimate.discountPercent > 0 && (
+                      <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+                        {estimate.discountPercent}% Volume Discount Applied
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Calculated for <strong>{formData.quantity} {formData.unit}</strong> @ ₹{estimate.effectiveRate.toLocaleString('en-IN')}/{formData.unit}
+                    {estimate.totalSavings > 0 && (
+                      <span className="text-emerald-700 font-bold ml-1.5">
+                        (You save ₹{estimate.totalSavings.toLocaleString('en-IN')})
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="text-left sm:text-right">
+                  <span className="text-lg sm:text-xl font-extrabold text-slate-900 block">
+                    ₹{estimate.estimatedTotal.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    + final transport to site
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Section 3: Site Location */}

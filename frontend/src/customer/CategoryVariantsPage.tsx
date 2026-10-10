@@ -6,6 +6,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner.js';
 import { Alert } from '../components/Alert.js';
 import { usePageMeta } from '../hooks/usePageMeta.js';
 import { VariantImage } from '../components/VariantImage.js';
+import { getProductPricingTiers } from '../utils/pricingTiers.js';
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,6 +14,7 @@ import {
   PackageCheck,
   Layers,
   Info,
+  Tag,
 } from 'lucide-react';
 
 export const CategoryVariantsPage: React.FC = () => {
@@ -117,19 +119,51 @@ export const CategoryVariantsPage: React.FC = () => {
               </div>
 
               {variant.indicative_price != null && (
-                <div className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
-                      Indicative Rate
-                    </span>
-                    <span className="text-sm font-extrabold text-emerald-900">
-                      ₹{Number(variant.indicative_price).toLocaleString('en-IN')}{' '}
-                      <span className="text-xs font-normal text-emerald-700">/ {variant.unit}</span>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                        Base Rate
+                      </span>
+                      <span className="text-sm font-extrabold text-emerald-900">
+                        ₹{Number(variant.indicative_price).toLocaleString('en-IN')}{' '}
+                        <span className="text-xs font-normal text-emerald-700">/ {variant.unit}</span>
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-700 bg-white/80 px-2 py-0.5 rounded border border-emerald-200 font-medium">
+                      Ex-Quarry
                     </span>
                   </div>
-                  <span className="text-[10px] text-emerald-700 bg-white/80 px-2 py-0.5 rounded border border-emerald-200 font-medium">
-                    Ex-Quarry
-                  </span>
+
+                  {/* D2C Volume Tier Pricing Pills */}
+                  {(() => {
+                    const breakdown = getProductPricingTiers(variant.indicative_price, variant.unit, variant.min_quantity);
+                    if (!breakdown) return null;
+                    return (
+                      <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-2.5 space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-amber-900">
+                          <span className="flex items-center gap-1">
+                            <Tag className="h-3 w-3 text-amber-600" />
+                            <span>D2C Volume Rates</span>
+                          </span>
+                          <span className="text-emerald-700 font-extrabold">Save up to 10%</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {breakdown.tiers.slice(1, 3).map((tier) => (
+                            <div
+                              key={tier.quantity}
+                              className="bg-white border border-amber-200 rounded-lg px-2 py-1 text-[10px] flex items-center justify-between"
+                            >
+                              <span className="text-slate-600 font-medium">{tier.quantity} {variant.unit}:</span>
+                              <span className="font-extrabold text-slate-900">
+                                ₹{tier.perUnitPrice.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
