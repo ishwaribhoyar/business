@@ -234,9 +234,14 @@ export const HomePage: React.FC = () => {
                       {cat.variants.map((v: any) => (
                         <span
                           key={v.id}
-                          className="inline-flex text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200"
+                          className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200"
                         >
-                          {v.name}
+                          <span>{v.name}</span>
+                          {v.indicative_price != null && (
+                            <span className="font-semibold text-emerald-700">
+                              (₹{Number(v.indicative_price).toLocaleString('en-IN')})
+                            </span>
+                          )}
                         </span>
                       ))}
                     </div>

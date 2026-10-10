@@ -26,6 +26,7 @@ describe('Phase 4 Verification Gate: Deep Concurrency & Multi-User Stress Suite'
   let supplierId: string;
   let driverId: string;
   let truckId: string;
+  const tomorrowDate = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
   beforeAll(async () => {
     // 1. Initialize SQLite baseline
@@ -176,7 +177,7 @@ describe('Phase 4 Verification Gate: Deep Concurrency & Multi-User Stress Suite'
       quantity: 10,
       unit: 'Brass',
       specifications: { silt_grade: 'Standard Screened Sand' },
-      preferred_delivery_date: '2026-10-05',
+      preferred_delivery_date: tomorrowDate,
     });
     expect(quoteReq.status).toBe(201);
     const orderId = quoteReq.body.data.orderId;
@@ -257,7 +258,7 @@ describe('Phase 4 Verification Gate: Deep Concurrency & Multi-User Stress Suite'
       variant_id: 'var_stone_20mm',
       quantity: 15,
       unit: 'Brass',
-      preferred_delivery_date: '2026-10-06',
+      preferred_delivery_date: tomorrowDate,
     });
     expect(quoteReq.status).toBe(201);
     const orderId = quoteReq.body.data.orderId;
@@ -344,7 +345,7 @@ describe('Phase 4 Verification Gate: Deep Concurrency & Multi-User Stress Suite'
       variant_id: 'var_sand_dust',
       quantity: 5,
       unit: 'Brass',
-      preferred_delivery_date: '2026-10-07',
+      preferred_delivery_date: tomorrowDate,
     });
     const orderId = quoteReq.body.data.orderId;
 
@@ -450,7 +451,7 @@ describe('Phase 4 Verification Gate: Deep Concurrency & Multi-User Stress Suite'
       quantity: 8,
       unit: 'Brass',
       specifications: { silt_grade: 'Standard Screened Sand' },
-      preferred_delivery_date: '2026-10-08',
+      preferred_delivery_date: tomorrowDate,
     });
     const orderId = quoteReq.body.data.orderId;
 

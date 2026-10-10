@@ -138,7 +138,7 @@ export const VariantDetailPage: React.FC = () => {
               {variant.short_description}
             </p>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className={`grid ${variant.indicative_price != null ? 'grid-cols-3' : 'grid-cols-2'} gap-3 pt-2`}>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-[11px] text-slate-500 font-medium block">Standard Unit</span>
                 <span className="text-sm font-bold text-slate-900">{variant.unit}</span>
@@ -149,6 +149,16 @@ export const VariantDetailPage: React.FC = () => {
                   {variant.min_quantity} {variant.unit}
                 </span>
               </div>
+              {variant.indicative_price != null && (
+                <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                  <span className="text-[11px] text-emerald-800 font-bold block uppercase tracking-wider">
+                    Indicative Rate
+                  </span>
+                  <span className="text-sm font-extrabold text-emerald-950">
+                    ₹{Number(variant.indicative_price).toLocaleString('en-IN')}/{variant.unit}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

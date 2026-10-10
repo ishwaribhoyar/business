@@ -237,9 +237,14 @@ export const ProductsPage: React.FC = () => {
                       <Link
                         key={v.id}
                         to={`/products/${category.slug}/${v.slug}`}
-                        className="inline-flex items-center text-[11px] font-medium bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-lg transition-colors border border-slate-200"
+                        className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-lg transition-colors border border-slate-200"
                       >
                         <span>{v.name}</span>
+                        {v.indicative_price != null && (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            ₹{Number(v.indicative_price).toLocaleString('en-IN')}/{v.unit}
+                          </span>
+                        )}
                       </Link>
                     ))}
                   </div>

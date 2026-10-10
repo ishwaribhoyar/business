@@ -161,7 +161,7 @@ describe('Phase 0 Foundation & Architecture Tests', () => {
           unit: 'Brass',
           delivery_address: 'Plot 45, Manish Nagar, Wardha Road',
           area_pincode: '440015',
-          preferred_delivery_date: '2026-10-01',
+          preferred_delivery_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
           customer_name: 'Rajesh Sharma',
           mobile_number: '9876543210',
           additional_notes: 'Urgent morning delivery requested',

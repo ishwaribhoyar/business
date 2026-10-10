@@ -195,7 +195,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/river-sand.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 6500,
       specifications_schema: JSON.stringify([
         {
           key: 'silt_grade',
@@ -217,7 +217,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/m-sand.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 3800,
       specifications_schema: JSON.stringify([
         {
           key: 'application_grade',
@@ -239,7 +239,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/stone-dust.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 1800,
       specifications_schema: '[]',
       display_order: 3,
     },
@@ -255,7 +255,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/red-clay-bricks.jpg',
       unit: 'Pieces',
       min_quantity: 1000,
-      indicative_price: null,
+      indicative_price: 9,
       specifications_schema: JSON.stringify([
         {
           key: 'brick_class',
@@ -277,7 +277,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/fly-ash-bricks.jpg',
       unit: 'Pieces',
       min_quantity: 1000,
-      indicative_price: null,
+      indicative_price: 6.5,
       specifications_schema: JSON.stringify([
         {
           key: 'strength_grade',
@@ -301,7 +301,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/20mm-aggregate.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 2400,
       specifications_schema: JSON.stringify([
         {
           key: 'crusher_type',
@@ -323,7 +323,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/10mm-aggregate.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 2300,
       specifications_schema: JSON.stringify([
         {
           key: 'crusher_type',
@@ -345,7 +345,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/40mm-aggregate.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 2600,
       specifications_schema: '[]',
       display_order: 3,
     },
@@ -359,7 +359,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/gsb-crushed-mix.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 2000,
       specifications_schema: '[]',
       display_order: 4,
     },
@@ -375,7 +375,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/yellow-murum.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 1400,
       specifications_schema: JSON.stringify([
         {
           key: 'compaction_type',
@@ -397,7 +397,7 @@ export function runSeeds(db?: DatabaseSync): void {
       image_url: '/images/variants/red-bharda-murum.jpg',
       unit: 'Brass',
       min_quantity: 1,
-      indicative_price: null,
+      indicative_price: 1600,
       specifications_schema: '[]',
       display_order: 2,
     },

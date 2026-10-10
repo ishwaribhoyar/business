@@ -116,6 +116,23 @@ export const CategoryVariantsPage: React.FC = () => {
                 </span>
               </div>
 
+              {variant.indicative_price != null && (
+                <div className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                      Indicative Rate
+                    </span>
+                    <span className="text-sm font-extrabold text-emerald-900">
+                      ₹{Number(variant.indicative_price).toLocaleString('en-IN')}{' '}
+                      <span className="text-xs font-normal text-emerald-700">/ {variant.unit}</span>
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 bg-white/80 px-2 py-0.5 rounded border border-emerald-200 font-medium">
+                    Ex-Quarry
+                  </span>
+                </div>
+              )}
+
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{variant.name}</h2>
                 <p className="text-xs text-slate-600 mt-1.5 leading-relaxed line-clamp-3">
